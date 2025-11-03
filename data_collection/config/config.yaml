@@ -1,0 +1,73 @@
+# ============================================
+# LLM Provider Configuration
+# ============================================
+llm:
+  # Provider: qwen | openai | deepseek | anthropic
+  provider: "qwen"
+
+  # Model configuration per provider
+  qwen:
+    model: "qwen-max"
+    base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    temperature: 0.7
+    max_tokens: 4000
+    timeout: 60
+    max_retries: 3
+
+  openai:
+    model: "gpt-4"
+    base_url: "https://api.openai.com/v1"
+    temperature: 0.7
+    max_tokens: 4000
+    timeout: 60
+    max_retries: 3
+
+  deepseek:
+    model: "deepseek-chat"
+    base_url: "https://api.deepseek.com/v1"
+    temperature: 0.7
+    max_tokens: 4000
+    timeout: 60
+    max_retries: 3
+
+  anthropic:
+    model: "claude-3-5-sonnet-20241022"
+    base_url: "https://api.anthropic.com/v1"
+    temperature: 0.7
+    max_tokens: 4000
+    timeout: 60
+    max_retries: 3
+
+# ============================================
+# Knowledge Base Paths
+# ============================================
+knowledge_base:
+  gurobi_index: "knowledge_base/data/gurobi_examples_index.json"
+  copt_kb_dir: "knowledge_base/data/copt_knowledge_base"
+  translation_guide: "knowledge_base/data/gurobi_to_copt_translation.json"
+
+# ============================================
+# Pipeline Configuration
+# ============================================
+pipeline:
+  max_debug_attempts: 3
+  answer_tolerance: 0.1
+  parallel_workers: 9
+  code_execution_timeout: 30
+
+# ============================================
+# Paths Configuration
+# ============================================
+paths:
+  prompts_dir: "config/prompts"
+  output_dir: "outputs/collected_data"
+  baseline_output_dir: "outputs/baseline_results"
+  api_keys_file: "config/API_keys.txt"
+  benchmark_dir: "../benchmark"
+
+# ============================================
+# Logging Configuration
+# ============================================
+logging:
+  level: "INFO"  # DEBUG | INFO | WARNING | ERROR
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

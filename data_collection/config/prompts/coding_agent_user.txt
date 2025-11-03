@@ -1,0 +1,10 @@
+## Original Problem
+{problem}
+
+## Mathematical Model
+{math_model}
+
+## COPT Python API Reference
+{reference}
+
+Generate the complete COPT Python code to solve this problem.

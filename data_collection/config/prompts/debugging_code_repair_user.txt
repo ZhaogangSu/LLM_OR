@@ -1,0 +1,12 @@
+## Current Code
+```python
+{code}
+```
+
+## Execution Error
+{error}
+
+## Problem Description
+{problem}
+
+Fix the code to resolve the error. Output the complete corrected code.

@@ -1,0 +1,13 @@
+## Original Problem
+{problem}
+
+## Reference Examples
+{reference}
+
+Based on the problem and reference examples, create a complete mathematical formulation.
+Think step by step about:
+1. What are the decision variables?
+2. What is the objective (minimize/maximize)?
+3. What constraints must be satisfied?
+
+Provide the complete mathematical model.
