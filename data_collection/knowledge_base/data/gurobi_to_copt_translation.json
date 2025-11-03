@@ -1,0 +1,98 @@
+{
+  "imports": {
+    "description": "Package imports and initialization",
+    "gurobi": [
+      "import gurobipy as gp",
+      "from gurobipy import GRB"
+    ],
+    "copt": [
+      "import coptpy as cp",
+      "from coptpy import COPT"
+    ],
+    "notes": "Verified from 44 Gurobi examples"
+  },
+  "model_creation": {
+    "description": "Creating optimization model",
+    "gurobi": [
+      "model = gp.Model('ModelName')"
+    ],
+    "copt": [
+      "env = cp.Envr()",
+      "model = env.createModel('ModelName')"
+    ],
+    "notes": "COPT requires environment object first"
+  },
+  "variables": {
+    "description": "Decision variable creation",
+    "gurobi": [
+      "x = model.addVar(vtype=GRB.BINARY, name='x')",
+      "y = model.addVar(vtype=GRB.INTEGER, lb=0, ub=10)",
+      "z = model.addVar(vtype=GRB.CONTINUOUS)"
+    ],
+    "copt": [
+      "x = model.addVar(vtype=COPT.BINARY, name='x')",
+      "y = model.addVar(vtype=COPT.INTEGER, lb=0, ub=10)",
+      "z = model.addVar(vtype=COPT.CONTINUOUS)"
+    ],
+    "notes": "GRB \u2192 COPT for variable types"
+  },
+  "constraints": {
+    "description": "Adding constraints",
+    "gurobi": [
+      "model.addConstr(x + y <= 10)",
+      "model.addConstrs(x[i] >= demand[i] for i in range(n))"
+    ],
+    "copt": [
+      "model.addConstr(x + y <= 10)",
+      "model.addConstrs(x[i] >= demand[i] for i in range(n))"
+    ],
+    "notes": "Syntax is identical for constraints!"
+  },
+  "quicksum": {
+    "description": "Efficient summation",
+    "gurobi": [
+      "gp.quicksum(cost[i]*x[i] for i in range(n))"
+    ],
+    "copt": [
+      "cp.quicksum(cost[i]*x[i] for i in range(n))",
+      "# OR just use Python's sum():",
+      "sum(cost[i]*x[i] for i in range(n))"
+    ],
+    "notes": "COPT supports both quicksum and regular sum"
+  },
+  "objective": {
+    "description": "Setting objective function",
+    "gurobi": [
+      "model.setObjective(expr, GRB.MINIMIZE)",
+      "model.setObjective(expr, GRB.MAXIMIZE)"
+    ],
+    "copt": [
+      "model.setObjective(expr, COPT.MINIMIZE)",
+      "model.setObjective(expr, COPT.MAXIMIZE)"
+    ],
+    "notes": "GRB \u2192 COPT for objective sense"
+  },
+  "solving": {
+    "description": "Solving the model",
+    "gurobi": [
+      "model.optimize()"
+    ],
+    "copt": [
+      "model.solve()"
+    ],
+    "notes": "CRITICAL: optimize() \u2192 solve()"
+  },
+  "solution_access": {
+    "description": "Accessing solution values",
+    "gurobi": [
+      "x.X  # variable value (uppercase X)",
+      "model.ObjVal  # objective value",
+      "model.objVal  # also works"
+    ],
+    "copt": [
+      "x.x  # variable value (lowercase x)",
+      "model.objval  # objective value (all lowercase)"
+    ],
+    "notes": "CRITICAL: Uppercase \u2192 lowercase! This is a common error!"
+  }
+}

@@ -1,0 +1,83 @@
+# API Keys and Sensitive Data
+config/API_keys.txt
+config/*.txt
+*.key
+*.secret
+
+# Outputs and Results
+outputs/
+collected_data/
+baseline_results/
+test_output/
+*.jsonl
+answer_correctness_report.json
+
+# Knowledge Base Data (large files)
+knowledge_base/data/gurobi_modeling_examples/
+knowledge_base/data/copt_knowledge_base/
+knowledge_base/data/gurobi_examples_index.json
+knowledge_base/data/gurobi_patterns_analysis.json
+knowledge_base/data/*.faiss
+knowledge_base/data/*.pkl
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environments
+venv/
+ENV/
+env/
+.venv
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+*.ipynb
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+logs/
+*.out
+*.err
+
+# Temporary Files
+tmp/
+temp/
+*.tmp
+.cache/
+
+# COPT/Gurobi
+*.lp
+*.mps
+*.sol
+*.ilp
+
+# Backup Files
+*_backup/
+*.bak
