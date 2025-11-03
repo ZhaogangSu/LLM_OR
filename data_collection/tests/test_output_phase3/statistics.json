@@ -1,0 +1,10 @@
+{
+  "total_problems": 1,
+  "successful": 1,
+  "failed": 0,
+  "success_rate": 1.0,
+  "correct_answers": 1,
+  "correctness_rate": 1.0,
+  "output_file": "test_output_phase3/training_data.jsonl",
+  "failed_ids": []
+}
