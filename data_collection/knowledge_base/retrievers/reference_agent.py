@@ -7,23 +7,23 @@ import json
 class ReferenceAgent:
     """Enhanced Reference Agent with Gurobi and COPT knowledge"""
     
-    def __init__(self, 
+    def __init__(self,
                  copt_kb_dir="copt_knowledge_base",
                  gurobi_index="gurobi_examples_index.json"):
-        self.knowledge_base.retrievers.copt_retriever = COPTRetriever(copt_kb_dir)
-        self.knowledge_base.retrievers.gurobi_retriever = GurobiExampleRetriever(gurobi_index)
+        self.copt_retriever = COPTRetriever(copt_kb_dir)
+        self.gurobi_retriever = GurobiExampleRetriever(gurobi_index)
         print("✓ Reference Agent V3 initialized (COPT + Gurobi)")
     
     def get_modeling_references(self, problem_description: str) -> str:
         """Get both Gurobi examples and COPT docs for modeling"""
         # Get Gurobi examples
-        gurobi_examples = self.knowledge_base.retrievers.gurobi_retriever.search(problem_description, top_k=2)
-        gurobi_ref = self.knowledge_base.retrievers.gurobi_retriever.format_for_prompt(gurobi_examples)
-        
+        gurobi_examples = self.gurobi_retriever.search(problem_description, top_k=2)
+        gurobi_ref = self.gurobi_retriever.format_for_prompt(gurobi_examples)
+
         # Get COPT docs
         keywords = self._extract_modeling_keywords(problem_description)
-        copt_sections = self.knowledge_base.retrievers.copt_retriever.search_by_keywords(keywords, top_k=2, python_only=True)
-        copt_ref = self.knowledge_base.retrievers.copt_retriever.format_reference(copt_sections, max_content_length=400)
+        copt_sections = self.copt_retriever.search_by_keywords(keywords, top_k=2, python_only=True)
+        copt_ref = self.copt_retriever.format_reference(copt_sections, max_content_length=400)
         
         # Combined reference
         reference = "## Modeling Guidance\n\n"
@@ -40,13 +40,13 @@ class ReferenceAgent:
         """Get COPT coding references with Gurobi→COPT translation hints"""
         # Get COPT API docs
         keywords = self._extract_coding_keywords(math_model)
-        sections = self.knowledge_base.retrievers.copt_retriever.search_by_keywords(keywords, top_k=2, python_only=True)
-        
+        sections = self.copt_retriever.search_by_keywords(keywords, top_k=2, python_only=True)
+
         reference = "## COPT Code Generation Guide\n\n"
         reference += "### Gurobi → COPT API Translation\n\n"
         reference += self._gurobi_to_copt_translation_guide()
         reference += "\n### COPT Python API Documentation\n\n"
-        reference += self.knowledge_base.retrievers.copt_retriever.format_reference(sections, max_content_length=400)
+        reference += self.copt_retriever.format_reference(sections, max_content_length=400)
         
         return reference
     
