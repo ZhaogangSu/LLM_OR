@@ -1,0 +1,9 @@
+## Code with Syntax Error
+```python
+{code}
+```
+
+## Error
+{error}
+
+Fix the syntax and output corrected code.

@@ -1,0 +1,15 @@
+## Problem
+{problem}
+
+## Mathematical Model
+{math_model}
+
+## Code with Logic Error
+```python
+{code}
+```
+
+## Error/Issue
+{error}
+
+Fix the logic and output corrected code.

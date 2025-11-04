@@ -1,0 +1,18 @@
+## Problem
+{problem}
+
+## Mathematical Model
+{math_model}
+
+## COPT API Reference (USE THIS!)
+{coding_reference}
+
+## Wrong Code (uses wrong solver)
+```python
+{code}
+```
+
+## Error
+{error}
+
+Generate COPT solution (not PuLP/Gurobi/etc.).

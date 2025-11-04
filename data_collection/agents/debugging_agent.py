@@ -1,12 +1,8 @@
+# agents/debugging_agent.py
 """
 Debugging Agent: Executes, debugs, and repairs generated code.
 
-Responsibilities:
-- Execute Python code in isolated environment
-- Capture and analyze errors
-- Repair code errors (syntax, runtime, logic)
-- Repair mathematical model if code fixes fail
-- Verify answer correctness against ground truth
+UPDATED: Uses external prompt files for easier maintenance
 """
 
 from typing import Dict, Any, List
@@ -16,22 +12,24 @@ from core.code_executor import CodeExecutor, extract_python_code
 from core.answer_checker import check_answer_correctness
 
 
+class ErrorType:
+    """Error type classification"""
+    INCOMPLETE_CODE = "incomplete_code"
+    SYNTAX_ERROR = "syntax_error"
+    API_ERROR = "api_error"
+    IMPORT_ERROR = "import_error"
+    LOGIC_ERROR = "logic_error"
+    VARIABLE_TYPE_ERROR = "variable_type"
+
+
 class DebuggingAgent(BaseAgent):
     """
-    Debugging and repair agent
-    
-    Executes code, identifies errors, and iteratively repairs
-    both code-level and model-level issues.
+    Improved debugging and repair agent with smart error classification
+    Uses external prompt files for easy maintenance
     """
     
     def __init__(self, llm_client: LLMClientPool, config: Dict[str, Any]):
-        """
-        Initialize debugging agent
-        
-        Args:
-            llm_client: LLM client pool
-            config: Configuration dictionary
-        """
+        """Initialize debugging agent"""
         super().__init__(llm_client, config)
         
         # Get pipeline config
@@ -39,6 +37,9 @@ class DebuggingAgent(BaseAgent):
         self.max_attempts = pipeline_config.get('max_debug_attempts', 3)
         self.answer_tolerance = pipeline_config.get('answer_tolerance', 0.1)
         self.execution_timeout = pipeline_config.get('code_execution_timeout', 30)
+        
+        # Get knowledge base config for API reference
+        self.kb_config = config.get('knowledge_base', {})
         
         # Initialize code executor
         self.executor = CodeExecutor(timeout=self.execution_timeout)
@@ -50,7 +51,8 @@ class DebuggingAgent(BaseAgent):
         code: str,
         problem: str,
         ground_truth: str,
-        math_model: str = ""
+        math_model: str = "",
+        coding_reference: str = ""
     ) -> Dict[str, Any]:
         """
         Execute code and repair if needed
@@ -59,16 +61,11 @@ class DebuggingAgent(BaseAgent):
             code: Initial Python code
             problem: Original problem description
             ground_truth: Expected answer
-            math_model: Mathematical formulation (for model repair)
+            math_model: Mathematical formulation
+            coding_reference: COPT API reference
             
         Returns:
-            Dict with keys:
-                - success: bool, overall success
-                - answer_correct: bool, if answer matches ground truth
-                - final_code: str, final working code
-                - result: Dict, execution result
-                - history: List[Dict], debug history
-                - attempts: int, number of attempts made
+            Dict with success, answer_correct, final_code, result, history
         """
         print(f"  [{self.agent_name}] Starting debugging process...")
         
@@ -90,7 +87,7 @@ class DebuggingAgent(BaseAgent):
             
             # Check if execution succeeded
             if exec_result['success']:
-                # Execution succeeded - check answer
+                # Check answer correctness
                 is_correct, pred_value, status = check_answer_correctness(
                     exec_result['output'],
                     ground_truth,
@@ -120,39 +117,48 @@ class DebuggingAgent(BaseAgent):
                     # Execution succeeded but wrong answer
                     print(f"  [{self.agent_name}] ⚠️  Wrong answer: {status}")
                     
-                    # Try variable type fix
                     if attempt < self.max_attempts:
-                        current_code = self._repair_variable_types(
+                        # Classify error and repair
+                        error_type = self._classify_error(
+                            exec_result['output'], 
+                            exec_result.get('error', ''),
                             current_code,
-                            math_model,
-                            pred_value,
-                            ground_truth
+                            is_execution_error=False
                         )
-                        attempt_record['repair_action'] = 'variable_type_fix'
-                    
+                        
+                        current_code = self._smart_repair(
+                            error_type=error_type,
+                            code=current_code,
+                            error=f"Wrong answer: expected {ground_truth}, got {pred_value}",
+                            problem=problem,
+                            math_model=math_model,
+                            coding_reference=coding_reference,
+                            predicted=pred_value,
+                            expected=ground_truth
+                        )
+                        attempt_record['repair_action'] = f'smart_repair_{error_type}'
             else:
-                # Execution failed - repair code
+                # Execution failed
                 print(f"  [{self.agent_name}] ❌ Execution error: {exec_result['error'][:100]}...")
                 
                 if attempt < self.max_attempts:
-                    if attempt < self.max_attempts - 1:
-                        # Code repair
-                        current_code = self._repair_code(
-                            current_code,
-                            exec_result['error'],
-                            problem
-                        )
-                        attempt_record['repair_action'] = 'code_repair'
-                    else:
-                        # Last attempt - try model repair
-                        current_code = self._repair_model(
-                            problem,
-                            math_model,
-                            current_code,
-                            exec_result['error'],
-                            attempt
-                        )
-                        attempt_record['repair_action'] = 'model_repair'
+                    # Classify error and repair
+                    error_type = self._classify_error(
+                        exec_result['output'],
+                        exec_result['error'],
+                        current_code,
+                        is_execution_error=True
+                    )
+                    
+                    current_code = self._smart_repair(
+                        error_type=error_type,
+                        code=current_code,
+                        error=exec_result['error'],
+                        problem=problem,
+                        math_model=math_model,
+                        coding_reference=coding_reference
+                    )
+                    attempt_record['repair_action'] = f'smart_repair_{error_type}'
             
             debug_history.append(attempt_record)
         
@@ -168,71 +174,195 @@ class DebuggingAgent(BaseAgent):
             'attempts': self.max_attempts
         }
     
-    def _repair_code(self, code: str, error: str, problem: str) -> str:
-        """
-        Repair code-level errors
-        
-        Args:
-            code: Current code
-            error: Error message
-            problem: Problem description
-            
-        Returns:
-            str: Repaired code
-        """
-        print(f"  [{self.agent_name}] Attempting code repair...")
-        
-        system_prompt = self._load_prompt('debugging_code_repair_system')
-        user_prompt = self._format_prompt(
-            'debugging_code_repair_user',
-            code=code,
-            error=error,
-            problem=problem
-        )
-        
-        raw_response = self._call_llm(system_prompt, user_prompt)
-        repaired_code = extract_python_code(raw_response)
-        
-        print(f"  [{self.agent_name}] ✓ Code repaired")
-        return repaired_code
-    
-    def _repair_model(
+    def _classify_error(
         self,
-        problem: str,
-        math_model: str,
-        code: str,
+        output: str,
         error: str,
-        attempt_count: int
+        code: str,
+        is_execution_error: bool
     ) -> str:
         """
-        Repair mathematical model (last resort)
+        Classify the type of error to apply appropriate fix
         
-        Args:
-            problem: Problem description
-            math_model: Current mathematical model
-            code: Current code
-            error: Error message
-            attempt_count: Number of failed attempts
-            
         Returns:
-            str: New code with corrected model
+            Error type from ErrorType class
         """
-        print(f"  [{self.agent_name}] Attempting model repair (last resort)...")
+        error_lower = error.lower()
+        code_lower = code.lower()
         
-        system_prompt = self._load_prompt('debugging_model_repair_system')
+        # 1. Incomplete code (most common for short code)
+        if len(code) < 200:
+            return ErrorType.INCOMPLETE_CODE
+        
+        if 'name' in error_lower and 'is not defined' in error_lower:
+            if 'model' in error_lower or 'env' in error_lower:
+                return ErrorType.INCOMPLETE_CODE
+        
+        # 2. Import errors (wrong solver)
+        if 'no module named' in error_lower:
+            if 'pulp' in error_lower or 'gurobipy' in error_lower:
+                return ErrorType.IMPORT_ERROR
+            return ErrorType.IMPORT_ERROR
+        
+        # 3. COPT API errors
+        if is_execution_error:
+            if 'attributeerror' in error_lower:
+                if 'env()' in code_lower or 'cp.env' in code_lower:
+                    return ErrorType.API_ERROR
+                if any(wrong_api in code_lower for wrong_api in [
+                    '.optimize()', '.objval', 'grb.', 'gurobipy'
+                ]):
+                    return ErrorType.API_ERROR
+        
+        # 4. Syntax errors
+        if 'syntaxerror' in error_lower or 'invalid syntax' in error_lower:
+            return ErrorType.SYNTAX_ERROR
+        
+        # 5. Variable type error (wrong answer with fractional solution)
+        if not is_execution_error:
+            if 'could not extract' not in error_lower:
+                return ErrorType.VARIABLE_TYPE_ERROR
+        
+        # 6. Default: logic error
+        return ErrorType.LOGIC_ERROR
+    
+    def _smart_repair(
+        self,
+        error_type: str,
+        code: str,
+        error: str,
+        problem: str,
+        math_model: str,
+        coding_reference: str,
+        predicted: float = None,
+        expected: str = None
+    ) -> str:
+        """
+        Apply appropriate repair strategy based on error type
+        
+        Returns:
+            Repaired code
+        """
+        print(f"  [{self.agent_name}] Applying {error_type} repair strategy...")
+        
+        if error_type == ErrorType.INCOMPLETE_CODE:
+            return self._repair_incomplete_code(
+                code, error, problem, math_model, coding_reference
+            )
+        
+        elif error_type == ErrorType.IMPORT_ERROR:
+            return self._repair_import_error(
+                code, error, problem, math_model, coding_reference
+            )
+        
+        elif error_type == ErrorType.API_ERROR:
+            return self._repair_api_error(
+                code, error, coding_reference
+            )
+        
+        elif error_type == ErrorType.SYNTAX_ERROR:
+            return self._repair_syntax_error(
+                code, error
+            )
+        
+        elif error_type == ErrorType.VARIABLE_TYPE_ERROR:
+            return self._repair_variable_types(
+                code, math_model, predicted, expected
+            )
+        
+        else:  # LOGIC_ERROR
+            return self._repair_logic_error(
+                code, error, problem, math_model
+            )
+    
+    def _repair_incomplete_code(
+        self,
+        code: str,
+        error: str,
+        problem: str,
+        math_model: str,
+        coding_reference: str
+    ) -> str:
+        """Repair incomplete code generation"""
+        system_prompt = self._load_prompt('debugging_incomplete_code_system')
         user_prompt = self._format_prompt(
-            'debugging_model_repair_user',
+            'debugging_incomplete_code_user',
             problem=problem,
             math_model=math_model,
+            coding_reference=coding_reference,
             code=code,
-            error=error,
-            attempt_count=attempt_count
+            error=error
         )
         
         raw_response = self._call_llm(system_prompt, user_prompt)
         repaired_code = extract_python_code(raw_response)
         
-        print(f"  [{self.agent_name}] ✓ Model repaired")
+        print(f"  [{self.agent_name}] ✓ Generated complete code ({len(repaired_code)} chars)")
+        return repaired_code
+    
+    def _repair_import_error(
+        self,
+        code: str,
+        error: str,
+        problem: str,
+        math_model: str,
+        coding_reference: str
+    ) -> str:
+        """Repair import errors (especially wrong solver)"""
+        system_prompt = self._load_prompt('debugging_import_error_system')
+        user_prompt = self._format_prompt(
+            'debugging_import_error_user',
+            problem=problem,
+            math_model=math_model,
+            coding_reference=coding_reference,
+            code=code,
+            error=error
+        )
+        
+        raw_response = self._call_llm(system_prompt, user_prompt)
+        repaired_code = extract_python_code(raw_response)
+        
+        print(f"  [{self.agent_name}] ✓ Fixed solver imports")
+        return repaired_code
+    
+    def _repair_api_error(
+        self,
+        code: str,
+        error: str,
+        coding_reference: str
+    ) -> str:
+        """Repair COPT API usage errors"""
+        system_prompt = self._load_prompt('debugging_api_error_system')
+        user_prompt = self._format_prompt(
+            'debugging_api_error_user',
+            coding_reference=coding_reference,
+            code=code,
+            error=error
+        )
+        
+        raw_response = self._call_llm(system_prompt, user_prompt)
+        repaired_code = extract_python_code(raw_response)
+        
+        print(f"  [{self.agent_name}] ✓ Fixed API usage")
+        return repaired_code
+    
+    def _repair_syntax_error(
+        self,
+        code: str,
+        error: str
+    ) -> str:
+        """Repair Python syntax errors"""
+        system_prompt = self._load_prompt('debugging_syntax_error_system')
+        user_prompt = self._format_prompt(
+            'debugging_syntax_error_user',
+            code=code,
+            error=error
+        )
+        
+        raw_response = self._call_llm(system_prompt, user_prompt)
+        repaired_code = extract_python_code(raw_response)
+        
+        print(f"  [{self.agent_name}] ✓ Fixed syntax")
         return repaired_code
     
     def _repair_variable_types(
@@ -242,86 +372,69 @@ class DebuggingAgent(BaseAgent):
         predicted: float,
         expected: str
     ) -> str:
-        """
-        Fix variable type issues (CONTINUOUS vs INTEGER)
-        
-        Args:
-            code: Current code
-            math_model: Mathematical model
-            predicted: Predicted answer
-            expected: Expected answer
-            
-        Returns:
-            str: Code with fixed variable types
-        """
-        print(f"  [{self.agent_name}] Attempting variable type fix...")
-        
-        system_prompt = self._load_prompt('debugging_variable_type_fix_system')
+        """Fix variable type issues (CONTINUOUS vs INTEGER)"""
+        system_prompt = self._load_prompt('debugging_variable_type_system')
         user_prompt = self._format_prompt(
-            'debugging_variable_type_fix_user',
-            code=code,
+            'debugging_variable_type_user',
             math_model=math_model,
-            predicted=predicted,
-            ground_truth=expected
+            code=code,
+            predicted=str(predicted) if predicted else "unknown",
+            expected=expected
         )
         
         raw_response = self._call_llm(system_prompt, user_prompt)
         repaired_code = extract_python_code(raw_response)
         
-        print(f"  [{self.agent_name}] ✓ Variable types fixed")
+        print(f"  [{self.agent_name}] ✓ Fixed variable types")
+        return repaired_code
+    
+    def _repair_logic_error(
+        self,
+        code: str,
+        error: str,
+        problem: str,
+        math_model: str
+    ) -> str:
+        """Repair logical/mathematical modeling errors"""
+        system_prompt = self._load_prompt('debugging_logic_error_system')
+        user_prompt = self._format_prompt(
+            'debugging_logic_error_user',
+            problem=problem,
+            math_model=math_model,
+            code=code,
+            error=error
+        )
+        
+        raw_response = self._call_llm(system_prompt, user_prompt)
+        repaired_code = extract_python_code(raw_response)
+        
+        print(f"  [{self.agent_name}] ✓ Fixed logic")
         return repaired_code
 
 
 # Test
 if __name__ == "__main__":
-    from config.config_loader import get_config
-    from core.llm_client import create_llm_client
-    
-    print("=== Debugging Agent Test ===\n")
-    
-    # Initialize
-    config = get_config()
-    llm = create_llm_client(config)
-    agent = DebuggingAgent(llm, config._config)
-    
-    # Test with simple working code
-    test_code = """
-import coptpy as cp
-from coptpy import COPT
-
-env = cp.Envr()
-model = env.createModel("test")
-
-x = model.addVar(lb=0, ub=10, vtype=COPT.CONTINUOUS, name="x")
-model.setObjective(x, COPT.MINIMIZE)
-model.addConstr(x >= 5, name="constraint")
-
-model.solve()
-
-if model.status == COPT.OPTIMAL:
-    print(f"Optimal objective: {model.objval}")
-else:
-    print("No solution")
-"""
-    
-    test_problem = "Minimize x subject to x >= 5"
-    test_ground_truth = "5.0"
-    
-    # Execute
-    try:
-        result = agent.execute(
-            code=test_code,
-            problem=test_problem,
-            ground_truth=test_ground_truth,
-            math_model="minimize x, s.t. x >= 5"
-        )
-        
-        print("\n--- Debug Result ---")
-        print(f"Success: {result['success']}")
-        print(f"Answer correct: {result['answer_correct']}")
-        print(f"Attempts: {result['attempts']}")
-        print(f"\n✓ Debugging Agent test passed!")
-    except Exception as e:
-        print(f"\n❌ Test failed: {e}")
-        import traceback
-        traceback.print_exc()
+    print("Debugging Agent with External Prompts")
+    print("="*70)
+    print("\nError Types:")
+    for attr in dir(ErrorType):
+        if not attr.startswith('_'):
+            print(f"  - {getattr(ErrorType, attr)}")
+    print("\nPrompt Files Required:")
+    prompts = [
+        'debugging_incomplete_code_system.txt',
+        'debugging_incomplete_code_user.txt',
+        'debugging_import_error_system.txt',
+        'debugging_import_error_user.txt',
+        'debugging_api_error_system.txt',
+        'debugging_api_error_user.txt',
+        'debugging_syntax_error_system.txt',
+        'debugging_syntax_error_user.txt',
+        'debugging_variable_type_system.txt',
+        'debugging_variable_type_user.txt',
+        'debugging_logic_error_system.txt',
+        'debugging_logic_error_user.txt',
+    ]
+    for p in prompts:
+        print(f"  - config/prompts/{p}")
+    print("="*70)

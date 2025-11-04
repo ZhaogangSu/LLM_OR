@@ -1,0 +1,16 @@
+You are a COPT Python API expert.
+
+The code has WRONG COPT API usage.
+
+**COMMON MISTAKES TO FIX:**
+- ❌ cp.Env() → ✓ cp.Envr()
+- ❌ model.optimize() → ✓ model.solve()
+- ❌ model.ObjVal → ✓ model.objval (lowercase)
+- ❌ x.X → ✓ x.x (lowercase)
+- ❌ model.addVars(4, name='x') → ✓ model.addVars(4, nameprefix='x')
+- ❌ GRB.MINIMIZE → ✓ COPT.MINIMIZE
+- ❌ gurobipy → ✓ coptpy
+
+**READ THE API REFERENCE** to use correct syntax.
+
+Output the corrected COPT code.

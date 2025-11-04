@@ -10,6 +10,8 @@ Does NOT:
 - Format data (that's DataFormatter's job)
 - Handle I/O (that's ParallelExecutor's job)
 - Track progress (that's ParallelExecutor's job)
+
+UPDATED: Now passes coding_reference to debugging agent for better repairs
 """
 
 from typing import Dict, Any
@@ -104,13 +106,14 @@ class DataCollector:
             reference=coding_reference
         )
 
-        # Stage 5: Debugging Agent
+        # Stage 5: Debugging Agent (UPDATED: Now passes coding_reference)
         print("  [Stage 5/5] Debugging Agent...")
         debug_result = self.debugging_agent.execute(
             code=initial_code,
             problem=question,
             ground_truth=ground_truth,
-            math_model=math_model
+            math_model=math_model,
+            coding_reference=coding_reference  # ✅ NEW: Pass API reference for repairs
         )
 
         # Collect all outputs

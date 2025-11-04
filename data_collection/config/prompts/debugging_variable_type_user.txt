@@ -1,0 +1,13 @@
+## Mathematical Model
+{math_model}
+
+## Current Code
+```python
+{code}
+```
+
+## Problem
+Expected: {expected}
+Got: {predicted} (likely fractional due to wrong variable type)
+
+Fix variable types and output corrected code.

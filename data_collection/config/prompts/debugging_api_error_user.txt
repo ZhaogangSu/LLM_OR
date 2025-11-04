@@ -1,0 +1,12 @@
+## COPT API Reference (FOLLOW THIS!)
+{coding_reference}
+
+## Code with API Error
+```python
+{code}
+```
+
+## Error
+{error}
+
+Fix the COPT API usage. Output corrected code.

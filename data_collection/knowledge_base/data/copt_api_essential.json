@@ -1,0 +1,116 @@
+{
+  "Model.addVar": {
+    "method_name": "Model.addVar",
+    "signature": "addVar(lb=0.0, ub=COPT.INFINITY, obj=0.0, vtype=COPT.CONTINUOUS, name=\"\", column=None)",
+    "description": "",
+    "parameters": {},
+    "returns": "",
+    "examples": [
+      "# Add a continuous variable\nx = m.addVar()\n# Add a binary variable\ny = m.addVar(vtype=COPT.BINARY)\n# Add an integer variable with lowerbound -1.0, upperbound 1.0, objective coefficient 1.0 and variable name \"z\"\nz = m.addVar(-1.0, 1.0, 1.0, COPT.INTEGER, \"z\")"
+    ],
+    "critical_note": "✓ ACCEPTS \"name\" parameter. Use for single named variables.",
+    "correct_usage": [
+      "x = model.addVar(vtype=COPT.INTEGER, name='x')",
+      "S = model.addVar(vtype=COPT.CONTINUOUS, name='S')"
+    ],
+    "url": "https://guide.coap.online/copt/en-doc/pyapiref.html#model-addvar"
+  },
+  "Model.addVars": {
+    "method_name": "Model.addVars",
+    "signature": "addVars(*indices, lb=0.0, ub=COPT.INFINITY, obj=0.0, vtype=COPT.CONTINUOUS, nameprefix=\"C\")",
+    "description": "",
+    "parameters": {},
+    "returns": "",
+    "examples": [
+      "# Add three-dimensional integer variable, 6 variables in total\nx = m.addVars(1, 2, 3, vtype=COPT.INTEGER)\n# Add two continuous variable y, whose indice is designated by elements in tuplelist and prefix is \"tl\"\ntl = tuplelist([(0, 1), (1, 2)])\ny  = m.addVars(tl, nameprefix=\"tl\")"
+    ],
+    "critical_note": "✗ Does NOT accept \"name\" parameter! Only accepts \"nameprefix\".",
+    "correct_usage": [
+      "# Unnamed (auto-generated names)",
+      "x = model.addVars(4, vtype=COPT.INTEGER)  # Creates x[0], x[1], x[2], x[3]",
+      "",
+      "# With prefix",
+      "x = model.addVars(4, vtype=COPT.INTEGER, nameprefix='x')  # Creates x0, x1, x2, x3"
+    ],
+    "wrong_usage": "x = model.addVars(4, name='x')  # ERROR: unexpected keyword 'name'",
+    "alternative": "# For custom names, use dict comprehension:\nx = {i: model.addVar(vtype=COPT.INTEGER, name=f'x_{i}') for i in range(4)}",
+    "url": "https://guide.coap.online/copt/en-doc/pyapiref.html#model-addvars"
+  },
+  "Model.addConstr": {
+    "method_name": "Model.addConstr",
+    "signature": "addConstr(lhs, sense=None, rhs=None, name=\"\")",
+    "description": "",
+    "parameters": {},
+    "returns": "",
+    "examples": [
+      "# Add a linear constraint: x + y == 2\nm.addConstr(x + y, COPT.EQUAL, 2)\n# Add a linear constraint: x + 2*y >= 3\nm.addConstr(x + 2*y >= 3.0)\n# Add an indicator constraint\nm.addConstr((x == 1) >> (2*y + 3*z <= 4))"
+    ],
+    "url": "https://guide.coap.online/copt/en-doc/pyapiref.html#model-addconstr"
+  },
+  "Model.addConstrs": {
+    "method_name": "Model.addConstrs",
+    "signature": "addConstrs(generator, nameprefix=\"R\")",
+    "description": "",
+    "parameters": {},
+    "returns": "",
+    "examples": [
+      "# Add 10 linear constraints, each constraint shaped like: x[0] + y[0] >= 2.0\nm.addConstrs(x[i] + y[i] >= 2.0 for i in range(10))"
+    ],
+    "url": "https://guide.coap.online/copt/en-doc/pyapiref.html#model-addconstrs"
+  },
+  "Model.setObjective": {
+    "method_name": "Model.setObjective",
+    "signature": "setObjective(expr, sense=None)",
+    "description": "",
+    "parameters": {},
+    "returns": "",
+    "examples": [
+      "# Set objective function = x+y, optimization sense is maximization.\nm.setObjective(x + y, COPT.MAXIMIZE)"
+    ],
+    "url": "https://guide.coap.online/copt/en-doc/pyapiref.html#model-setobjective"
+  },
+  "Model.solve": {
+    "method_name": "Model.solve",
+    "signature": "solve()",
+    "description": "",
+    "parameters": {},
+    "returns": "",
+    "examples": [
+      "# Solve the model.\nm.solve()"
+    ],
+    "critical_note": "Always check model.status == COPT.OPTIMAL before accessing solution.",
+    "correct_usage": [
+      "model.solve()",
+      "if model.status == COPT.OPTIMAL:",
+      "    print(f'Optimal objective: {model.objval}')"
+    ],
+    "url": "https://guide.coap.online/copt/en-doc/pyapiref.html#model-solve"
+  },
+  "Envr.__init__": {
+    "method_name": "Envr.__init__",
+    "signature": "Envr(arg=None)",
+    "description": "",
+    "parameters": {},
+    "returns": "",
+    "examples": [
+      "# Create solving environment\nenv = Envr()"
+    ],
+    "url": "https://guide.coap.online/copt/en-doc/pyapiref.html#envr"
+  },
+  "Envr.createModel": {
+    "method_name": "Envr.createModel",
+    "signature": "createModel(name=\"\")",
+    "description": "",
+    "parameters": {},
+    "returns": "",
+    "examples": [
+      "# Create optimization model\nmodel = env.createModel(\"coptprob\")"
+    ],
+    "critical_note": "COPT requires Envr() first, unlike Gurobi which uses gp.Model() directly.",
+    "correct_usage": [
+      "env = cp.Envr()",
+      "model = env.createModel('problem_name')"
+    ],
+    "url": "https://guide.coap.online/copt/en-doc/pyapiref.html#envr-createmodel"
+  }
+}

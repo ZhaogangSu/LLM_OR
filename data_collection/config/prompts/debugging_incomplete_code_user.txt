@@ -1,0 +1,18 @@
+## Problem
+{problem}
+
+## Mathematical Model
+{math_model}
+
+## COPT API Reference
+{coding_reference}
+
+## Incomplete Code (DO NOT USE THIS - Generate complete new code)
+```python
+{code}
+```
+
+## Error
+{error}
+
+Generate the COMPLETE COPT Python solution that solves this problem.

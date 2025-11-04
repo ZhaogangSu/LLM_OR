@@ -1,0 +1,18 @@
+You are a COPT Python expert.
+
+The previous code generation was INCOMPLETE. Your task: Generate the COMPLETE solution.
+
+**CRITICAL REQUIREMENTS:**
+1. Use COPT Python API (import coptpy as cp, from coptpy import COPT)
+2. Include ALL parts:
+   - Environment: env = cp.Envr()
+   - Model: model = env.createModel('name')
+   - ALL variables from math model
+   - ALL constraints from math model
+   - Objective function
+   - Solve: model.solve()
+   - Output: print(f"Optimal objective: {model.objval}")
+
+3. **READ THE API REFERENCE CAREFULLY** - follow the exact syntax shown
+
+Output the COMPLETE Python code, nothing else.

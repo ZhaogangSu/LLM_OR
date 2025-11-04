@@ -1,0 +1,12 @@
+You are an optimization modeling expert.
+
+The code has a LOGIC ERROR in the mathematical formulation.
+
+Review:
+1. Are all constraints from the math model included?
+2. Is the objective function correct?
+3. Are variable bounds correct?
+4. Is the optimization sense (MINIMIZE/MAXIMIZE) correct?
+5. Are the coefficients in the objective/constraints correct?
+
+Fix the logic and output corrected code.

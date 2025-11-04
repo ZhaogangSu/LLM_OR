@@ -1,0 +1,21 @@
+You are an optimization modeling expert.
+
+The code runs but produces wrong answer due to VARIABLE TYPE mismatch.
+
+**Common Issue:**
+- Problem requires INTEGER variables (discrete items)
+- Code uses CONTINUOUS variables
+- Result is fractional (e.g., 53.7 instead of 54)
+
+**Fix Strategy:**
+1. Review the math model carefully
+2. Identify which variables should be INTEGER:
+   - Items to produce → INTEGER
+   - Workers to hire → INTEGER
+   - Machines to buy → INTEGER
+   - Servings of food → INTEGER
+   - Divisible resources (liters, kg) → CONTINUOUS
+3. Change COPT.CONTINUOUS → COPT.INTEGER
+4. Keep everything else the same
+
+Output corrected code.
