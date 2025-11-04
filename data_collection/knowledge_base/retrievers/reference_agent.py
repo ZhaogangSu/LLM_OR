@@ -1,150 +1,238 @@
 # knowledge_base/retrievers/reference_agent.py
-from knowledge_base.retrievers.copt_retriever import COPTRetriever
+"""
+Reference Agent - Simplified version that uses only essential APIs
+
+Provides:
+1. Gurobi examples for modeling guidance (unchanged)
+2. COPT API essentials from JSON (simplified - no general docs)
+"""
+
+from knowledge_base.retrievers.copt_api_retriever import COPTAPIRetriever
 from knowledge_base.retrievers.gurobi_retriever import GurobiExampleRetriever
-from knowledge_base.retrievers.copt_retriever import COPTRetriever
 from typing import List
 import json
 
+
 class ReferenceAgent:
-    """Enhanced Reference Agent with Gurobi, COPT docs, and COPT API essentials"""
+    """
+    Simplified Reference Agent using only Gurobi examples + COPT API essentials
     
-    def __init__(self,
-                 copt_kb_dir="knowledge_base/data/copt_knowledge_base",
-                 gurobi_index="knowledge_base/data/gurobi_examples_index.json",
-                 copt_api_json="knowledge_base/data/copt_knowledge_base/copt_api_essential.json"):
-        # FIX: Pass correct parameters to each retriever
-        self.copt_retriever = COPTRetriever(copt_kb_dir)  # Directory for general docs
-        self.gurobi_retriever = GurobiExampleRetriever(gurobi_index)  # Index file
-        self.copt_api_retriever = COPTRetriever(copt_api_json)  # JSON file for API
-        print("✓ Reference Agent V4 initialized (Gurobi + COPT + API Essentials)")
+    Removed:
+    - General COPT documentation (copt_flat_sections.jsonl)
+    - Complex section searching
+    - Unnecessary file I/O
+    
+    Kept:
+    - Gurobi modeling examples
+    - COPT API essentials (JSON)
+    - Translation guide (optional)
+    """
+    
+    def __init__(
+        self,
+        gurobi_index: str = "knowledge_base/data/gurobi_examples_index.json",
+        copt_api_json: str = "knowledge_base/data/copt_api_essential.json",
+        translation_guide: str = None
+    ):
+        """
+        Initialize reference agent
+        
+        Args:
+            gurobi_index: Path to Gurobi examples index JSON
+            copt_api_json: Path to COPT API essentials JSON
+            translation_guide: Optional path to Gurobi→COPT translation guide
+            
+        Example:
+            >>> agent = ReferenceAgent(
+            ...     gurobi_index='path/to/gurobi_index.json',
+            ...     copt_api_json='path/to/copt_api_essential.json'
+            ... )
+        """
+        # Initialize Gurobi retriever (for modeling examples)
+        self.gurobi_retriever = GurobiExampleRetriever(gurobi_index)
+        
+        # Initialize COPT API retriever (for coding)
+        self.copt_api_retriever = COPTAPIRetriever(copt_api_json)
+        
+        # Load translation guide if provided
+        self.translation_guide = None
+        if translation_guide:
+            try:
+                with open(translation_guide, 'r') as f:
+                    self.translation_guide = json.load(f)
+            except:
+                print(f"⚠️  Could not load translation guide from {translation_guide}")
+        
+        print("✓ Reference Agent initialized (Gurobi + COPT API only)")
     
     def get_modeling_references(self, problem_description: str) -> str:
-        """Get references for modeling"""
-        # Get Gurobi examples
-        gurobi_examples = self.gurobi_retriever.search(problem_description, top_k=2)
-        gurobi_ref = self.gurobi_retriever.format_for_prompt(gurobi_examples)
-
-        # Get COPT docs
-        keywords = self._extract_modeling_keywords(problem_description)
-        copt_sections = self.copt_retriever.search_by_keywords(keywords, top_k=2, python_only=True)
-        copt_ref = self.copt_retriever.format_reference(copt_sections, max_content_length=400)
+        """
+        Get references for mathematical modeling
         
-        # Combined reference
-        reference = "## Modeling Guidance\n\n"
-        reference += "### Step 1: Learn from Similar Gurobi Examples\n\n"
-        reference += gurobi_ref
-        reference += "\n### Step 2: COPT API Documentation\n\n"
-        reference += copt_ref
-        reference += "\n**Important**: Use Gurobi examples to understand the MODELING APPROACH, "
-        reference += "but write code using COPT Python API (not Gurobi syntax).\n"
+        Strategy:
+        1. Search Gurobi examples for similar problems
+        2. Format examples with modeling patterns
+        3. Add note about using COPT syntax for code
+        
+        Args:
+            problem_description: Natural language problem description
+            
+        Returns:
+            Formatted modeling guidance with examples
+        """
+        # Get relevant Gurobi examples
+        gurobi_examples = self.gurobi_retriever.search(
+            problem_description, 
+            top_k=2
+        )
+        
+        # Format as modeling guidance
+        reference = "## Mathematical Modeling Guidance\n\n"
+        reference += "### Similar Problem Examples\n\n"
+        reference += "Learn from these Gurobi modeling examples (patterns apply to any solver):\n\n"
+        reference += self.gurobi_retriever.format_for_prompt(gurobi_examples)
+        
+        reference += "\n### Important Note\n"
+        reference += "- Use these examples to understand the **modeling approach**\n"
+        reference += "- When writing code, use **COPT Python API** (not Gurobi syntax)\n"
+        reference += "- Focus on: variable types, constraint structure, objective function\n\n"
         
         return reference
     
     def get_coding_references(self, math_model: str) -> str:
-        """Get COPT coding references with API essentials"""
-        # Extract what APIs are needed based on math model
-        api_keywords = self._extract_api_keywords(math_model)
+        """
+        Get COPT API references for code generation
         
-        # Get essential API docs for these keywords
+        Strategy:
+        1. Extract API keywords from mathematical model
+        2. Get relevant COPT API methods
+        3. Include essential guide + specific API docs
+        4. Add translation notes if available
+        
+        Args:
+            math_model: Mathematical formulation text
+            
+        Returns:
+            Formatted COPT API documentation
+        """
+        # Extract which APIs are needed
+        api_keywords = self.copt_api_retriever.extract_api_keywords_from_model(math_model)
+        
+        # Get specific API methods
         method_names = self.copt_api_retriever.get_methods_by_keywords(api_keywords)
-        api_docs = self.copt_api_retriever.format_for_prompt(method_names, include_all_details=False)
         
-        # Get essential guide
-        essential_guide = self.copt_api_retriever.get_essential_api_guide()
+        # Build reference document
+        reference = "## COPT Python API Reference\n\n"
         
-        # Also get general COPT docs (less important now)
-        keywords = self._extract_coding_keywords(math_model)
-        sections = self.copt_retriever.search_by_keywords(keywords, top_k=1, python_only=True)
-        general_docs = self.copt_retriever.format_reference(sections, max_content_length=300)
-
-        # Combine with API essentials FIRST (most important)
-        reference = "## COPT Code Generation Guide\n\n"
-        reference += essential_guide
-        reference += "\n### Specific API Documentation for This Problem\n\n"
-        reference += api_docs
-        reference += "\n### Additional COPT Documentation\n\n"
-        reference += general_docs
+        # 1. Essential guide (always include)
+        reference += "### Essential COPT Workflow\n\n"
+        reference += self.copt_api_retriever.get_essential_guide()
+        
+        # 2. Specific APIs for this problem
+        if method_names:
+            reference += "\n### Specific APIs for This Problem\n\n"
+            reference += self.copt_api_retriever.format_for_prompt(
+                method_names,
+                include_all_details=True
+            )
+        
+        # 3. Translation guide (if available)
+        if self.translation_guide:
+            reference += "\n### Gurobi → COPT Translation\n\n"
+            reference += self._format_translation_guide()
         
         return reference
     
-    def _extract_api_keywords(self, math_model: str) -> List[str]:
-        """Extract which COPT APIs are needed from math model"""
-        keywords = []
-        model_lower = math_model.lower()
+    def _format_translation_guide(self) -> str:
+        """Format Gurobi→COPT translation guide for prompt"""
+        if not self.translation_guide:
+            return ""
         
-        # Always need these basics
-        keywords.extend(['envr', 'model', 'solve'])
+        guide = "Common Gurobi→COPT translations:\n\n"
         
-        # Variable types
-        if any(w in model_lower for w in ['variable', 'decision']):
-            keywords.extend(['addvar', 'addvars', 'variable'])
+        # Key differences
+        key_diffs = [
+            ('imports', 'Package imports'),
+            ('model_creation', 'Model creation'),
+            ('solving', 'Solving'),
+            ('solution_access', 'Solution access')
+        ]
         
-        if any(w in model_lower for w in ['binary', 'integer', 'continuous']):
-            keywords.append('variable')
+        for key, title in key_diffs:
+            if key in self.translation_guide:
+                section = self.translation_guide[key]
+                guide += f"**{title}:**\n"
+                guide += f"- Gurobi: `{section['gurobi'][0]}`\n"
+                guide += f"- COPT: `{section['copt'][0]}`\n"
+                if section.get('notes'):
+                    guide += f"- Note: {section['notes']}\n"
+                guide += "\n"
         
-        # Constraints
-        if any(w in model_lower for w in ['constraint', 'subject to', '<=', '>=']):
-            keywords.extend(['addconstr', 'constraint'])
-        
-        # Objective
-        if any(w in model_lower for w in ['objective', 'minimize', 'maximize']):
-            keywords.extend(['objective', 'setobjective'])
-        
-        return list(set(keywords))
+        return guide
     
-    def _extract_modeling_keywords(self, problem: str) -> List[str]:
-        """Extract keywords for modeling search"""
-        keywords = ['model', 'variable']
-        problem_lower = problem.lower()
+    def get_complete_reference(
+        self, 
+        problem: str,
+        math_model: str = None
+    ) -> dict[str, str]:
+        """
+        Get both modeling and coding references
         
-        if any(w in problem_lower for w in ['binary', 'select', 'yes/no', 'whether', 'choose']):
-            keywords.append('binary')
-        if any(w in problem_lower for w in ['integer', 'count', 'number of', 'units']):
-            keywords.append('integer')
+        Args:
+            problem: Problem description
+            math_model: Mathematical model (if available)
+            
+        Returns:
+            Dict with 'modeling' and 'coding' references
+        """
+        references = {
+            'modeling': self.get_modeling_references(problem)
+        }
         
-        if any(w in problem_lower for w in ['minimize', 'minimum', 'least', 'cost']):
-            keywords.extend(['minimize', 'objective'])
-        if any(w in problem_lower for w in ['maximize', 'maximum', 'most', 'profit', 'revenue']):
-            keywords.extend(['maximize', 'objective'])
+        if math_model:
+            references['coding'] = self.get_coding_references(math_model)
         
-        if any(w in problem_lower for w in ['constraint', 'must', 'should', 'at least', 'at most']):
-            keywords.append('constraint')
-        
-        return list(set(keywords))
-    
-    def _extract_coding_keywords(self, math_model: str) -> List[str]:
-        """Extract API keywords from mathematical model"""
-        keywords = []
-        model_lower = math_model.lower()
-        
-        if any(w in model_lower for w in ['variable', 'decision']):
-            keywords.extend(['addvar', 'variable'])
-        
-        if any(w in model_lower for w in ['constraint', 'subject to', '<=']):
-            keywords.extend(['addconstr', 'constraint'])
-        
-        if any(w in model_lower for w in ['objective', 'minimize', 'maximize']):
-            keywords.extend(['setobjective', 'objective'])
-        
-        keywords.append('solve')
-        
-        return list(set(keywords))
-    
+        return references
+
+
 # Test
 if __name__ == "__main__":
-    agent = ReferenceAgent()
+    print("=== Reference Agent Test ===\n")
     
+    # Initialize
+    agent = ReferenceAgent(
+        gurobi_index="knowledge_base/data/gurobi_examples_index.json",
+        copt_api_json="knowledge_base/data/copt_api_essential.json"
+    )
+    
+    # Test problem
     problem = """
-    A factory can produce products A and B. 
+    A factory produces two products A and B.
     Product A requires 2 hours and gives $10 profit.
     Product B requires 3 hours and gives $15 profit.
-    Available: 100 hours. Demand: At least 10 of A, 5 of B.
+    Available: 100 hours.
     Maximize profit.
     """
     
-    print("="*70)
-    print("Testing Enhanced Reference Agent")
-    print("="*70)
-    
+    # Test 1: Modeling references
+    print("Test 1: Get modeling references")
     modeling_ref = agent.get_modeling_references(problem)
-    print(modeling_ref[:1000])
+    print(f"✓ Modeling reference length: {len(modeling_ref)} chars\n")
+    
+    # Test 2: Coding references
+    print("Test 2: Get coding references")
+    math_model = """
+    Variables: x_A, x_B (continuous, non-negative)
+    Objective: maximize 10*x_A + 15*x_B
+    Constraints:
+    - 2*x_A + 3*x_B <= 100 (time)
+    """
+    coding_ref = agent.get_coding_references(math_model)
+    print(f"✓ Coding reference length: {len(coding_ref)} chars\n")
+    
+    # Test 3: Complete reference
+    print("Test 3: Get complete reference")
+    complete = agent.get_complete_reference(problem, math_model)
+    print(f"✓ Got {len(complete)} reference types\n")
+    
+    print("✓ All tests passed!")

@@ -11,7 +11,7 @@ llm:
   #   model: "deepseek-r1"  # 修改为推理模型
   #   base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
   #   temperature: 0.5
-  #   max_tokens: 10000
+  #   max_tokens: 16384
   #   timeout: 60
   #   max_retries: 3
   
@@ -21,7 +21,7 @@ llm:
     model: "qwq-32b-preview"
     base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
     temperature: 0.5
-    max_tokens: 10000
+    max_tokens: 16384
     timeout: 60
     max_retries: 3
   
@@ -30,7 +30,7 @@ llm:
   #   model: "qwen-max"
   #   base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
   #   temperature: 0.5
-  #   max_tokens: 10000
+  #   max_tokens: 16384
   #   timeout: 60
   #   max_retries: 3
   
@@ -40,7 +40,7 @@ llm:
   #   model: "gpt-4"
   #   base_url: "https://api.openai.com/v1"
   #   temperature: 0.5
-  #   max_tokens: 10000
+  #   max_tokens: 16384
   #   timeout: 60
   #   max_retries: 3
   
@@ -48,7 +48,7 @@ llm:
   #   model: "deepseek-chat"
   #   base_url: "https://api.deepseek.com/v1"
   #   temperature: 0.5
-  #   max_tokens: 10000
+  #   max_tokens: 16384
   #   timeout: 60
   #   max_retries: 3
   
@@ -56,7 +56,7 @@ llm:
   #   model: "claude-3-5-sonnet-20241022"
   #   base_url: "https://api.anthropic.com/v1"
   #   temperature: 0.5
-  #   max_tokens: 10000
+  #   max_tokens: 16384
   #   timeout: 60
   #   max_retries: 3
 
@@ -64,9 +64,11 @@ llm:
 # Knowledge Base Paths
 # ============================================
 knowledge_base:
+  # Gurobi modeling examples index
   gurobi_index: "knowledge_base/data/gurobi_examples_index.json"
-  copt_kb_dir: "knowledge_base/data/copt_knowledge_base"
-  copt_api_json: "knowledge_base/data/copt_knowledge_base/copt_api_essential.json"
+  # COPT API essentials (JSON only - no more copt_kb_dir!)
+  copt_api_json: "knowledge_base/data/copt_api_essential.json"
+  # Optional: Gurobi→COPT translation guide
   translation_guide: "knowledge_base/data/gurobi_to_copt_translation.json"
 
 # ============================================

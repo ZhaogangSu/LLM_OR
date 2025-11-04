@@ -1,3 +1,4 @@
+# config/config_loader.py
 """
 Configuration loader for data collection system.
 Loads config.yaml and provides validated access to all settings.
@@ -115,7 +116,7 @@ class Config:
             'paths.prompts_dir',
             'paths.api_keys_file',
             'knowledge_base.gurobi_index',
-            'knowledge_base.copt_kb_dir',
+            'knowledge_base.copt_api_json',
             'pipeline.max_debug_attempts'
         ]
 

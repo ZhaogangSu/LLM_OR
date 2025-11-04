@@ -1,9 +1,9 @@
 # agents/reference_agent.py
 """
-Reference Agent: Retrieves relevant knowledge for modeling and coding.
+Reference Agent Wrapper - Simplified version
 
-This is a wrapper around the knowledge base retrievers.
-The actual retrievers remain in knowledge_base/retrievers/.
+This wrapper provides a clean interface to the knowledge base reference agent.
+Now only requires copt_api_json (no more copt_kb_dir).
 """
 
 from typing import Dict, Any
@@ -19,13 +19,16 @@ from reference_agent import ReferenceAgent as KBReferenceAgent
 
 class ReferenceAgent:
     """
-    Wrapper for knowledge base reference agent
+    Wrapper for knowledge base reference agent (Simplified)
     
     Provides clean interface for retrieving:
     - Gurobi modeling examples
-    - COPT API documentation
-    - COPT API essentials
-    - Gurobi→COPT translation guides
+    - COPT API essentials (JSON only)
+    - Gurobi→COPT translation guide (optional)
+    
+    Removed:
+    - General COPT documentation (copt_kb_dir)
+    - Complex document searching
     """
     
     def __init__(self, config: Dict[str, Any]):
@@ -34,17 +37,34 @@ class ReferenceAgent:
         
         Args:
             config: Configuration dictionary with knowledge_base paths
+            
+        Required config keys:
+            - knowledge_base.gurobi_index
+            - knowledge_base.copt_api_json
+            
+        Optional config keys:
+            - knowledge_base.translation_guide
         """
         kb_config = config.get('knowledge_base', {})
         
+        # Validate required paths
+        required_paths = {
+            'gurobi_index': kb_config.get('gurobi_index'),
+            'copt_api_json': kb_config.get('copt_api_json')
+        }
+        
+        missing = [k for k, v in required_paths.items() if not v]
+        if missing:
+            raise ValueError(f"Missing required config keys: {missing}")
+        
+        # Initialize knowledge base agent
         self.kb_agent = KBReferenceAgent(
-            copt_kb_dir=kb_config.get('copt_kb_dir'),
-            gurobi_index=kb_config.get('gurobi_index'),
-            copt_api_json=kb_config.get('copt_api_json',
-                                        'knowledge_base/data/copt_knowledge_base/copt_api_essential.json')
+            gurobi_index=kb_config['gurobi_index'],
+            copt_api_json=kb_config['copt_api_json'],
+            translation_guide=kb_config.get('translation_guide')
         )
         
-        print("✓ ReferenceAgent initialized")
+        print("✓ ReferenceAgent wrapper initialized")
     
     def get_modeling_references(self, problem: str) -> str:
         """
@@ -54,7 +74,7 @@ class ReferenceAgent:
             problem: Problem description
             
         Returns:
-            str: Formatted references (Gurobi examples + COPT docs)
+            str: Formatted references (Gurobi examples)
         """
         return self.kb_agent.get_modeling_references(problem)
     
@@ -66,28 +86,34 @@ class ReferenceAgent:
             math_model: Mathematical formulation
             
         Returns:
-            str: Formatted references (COPT API essentials + docs + translation guide)
+            str: Formatted references (COPT API essentials)
         """
         return self.kb_agent.get_coding_references(math_model)
+
+
 # Test
 if __name__ == "__main__":
     from config.config_loader import get_config
     
-    print("=== Reference Agent Test ===\n")
+    print("=== Reference Agent Wrapper Test ===\n")
     
+    # Load config
     config = get_config()
+    
+    # Initialize agent
     agent = ReferenceAgent(config._config)
     
+    # Test problem
     test_problem = "production planning with capacity constraints"
     
     print("Testing modeling references...")
     modeling_ref = agent.get_modeling_references(test_problem)
-    print(f"✓ Got {len(modeling_ref)} chars of modeling references")
+    print(f"✓ Got {len(modeling_ref)} chars of modeling references\n")
     
     test_model = "Variables: x[i], Objective: minimize cost, Constraints: capacity"
     
-    print("\nTesting coding references...")
+    print("Testing coding references...")
     coding_ref = agent.get_coding_references(test_model)
-    print(f"✓ Got {len(coding_ref)} chars of coding references")
+    print(f"✓ Got {len(coding_ref)} chars of coding references\n")
     
-    print("\n✓ Reference Agent test passed!")
+    print("✓ Reference Agent wrapper test passed!")
