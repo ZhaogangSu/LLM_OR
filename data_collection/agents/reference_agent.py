@@ -1,3 +1,4 @@
+# agents/reference_agent.py
 """
 Reference Agent: Retrieves relevant knowledge for modeling and coding.
 
@@ -23,6 +24,7 @@ class ReferenceAgent:
     Provides clean interface for retrieving:
     - Gurobi modeling examples
     - COPT API documentation
+    - COPT API essentials
     - Gurobi→COPT translation guides
     """
     
@@ -37,7 +39,9 @@ class ReferenceAgent:
         
         self.kb_agent = KBReferenceAgent(
             copt_kb_dir=kb_config.get('copt_kb_dir'),
-            gurobi_index=kb_config.get('gurobi_index')
+            gurobi_index=kb_config.get('gurobi_index'),
+            copt_api_json=kb_config.get('copt_api_json',
+                                        'knowledge_base/data/copt_knowledge_base/copt_api_essential.json')
         )
         
         print("✓ ReferenceAgent initialized")
@@ -62,11 +66,9 @@ class ReferenceAgent:
             math_model: Mathematical formulation
             
         Returns:
-            str: Formatted references (COPT docs + translation guide)
+            str: Formatted references (COPT API essentials + docs + translation guide)
         """
         return self.kb_agent.get_coding_references(math_model)
-
-
 # Test
 if __name__ == "__main__":
     from config.config_loader import get_config

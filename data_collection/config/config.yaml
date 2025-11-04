@@ -66,6 +66,7 @@ llm:
 knowledge_base:
   gurobi_index: "knowledge_base/data/gurobi_examples_index.json"
   copt_kb_dir: "knowledge_base/data/copt_knowledge_base"
+  copt_api_json: "knowledge_base/data/copt_knowledge_base/copt_api_essential.json"
   translation_guide: "knowledge_base/data/gurobi_to_copt_translation.json"
 
 # ============================================

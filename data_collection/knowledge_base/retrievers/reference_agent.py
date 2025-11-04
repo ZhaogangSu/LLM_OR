@@ -1,21 +1,25 @@
-# reference_agent_v3.py (update your existing file)
+# knowledge_base/retrievers/reference_agent.py
 from knowledge_base.retrievers.copt_retriever import COPTRetriever
 from knowledge_base.retrievers.gurobi_retriever import GurobiExampleRetriever
+from knowledge_base.retrievers.copt_retriever import COPTRetriever
 from typing import List
 import json
 
 class ReferenceAgent:
-    """Enhanced Reference Agent with Gurobi and COPT knowledge"""
+    """Enhanced Reference Agent with Gurobi, COPT docs, and COPT API essentials"""
     
     def __init__(self,
-                 copt_kb_dir="copt_knowledge_base",
-                 gurobi_index="gurobi_examples_index.json"):
-        self.copt_retriever = COPTRetriever(copt_kb_dir)
-        self.gurobi_retriever = GurobiExampleRetriever(gurobi_index)
-        print("✓ Reference Agent V3 initialized (COPT + Gurobi)")
+                 copt_kb_dir="knowledge_base/data/copt_knowledge_base",
+                 gurobi_index="knowledge_base/data/gurobi_examples_index.json",
+                 copt_api_json="knowledge_base/data/copt_knowledge_base/copt_api_essential.json"):
+        # FIX: Pass correct parameters to each retriever
+        self.copt_retriever = COPTRetriever(copt_kb_dir)  # Directory for general docs
+        self.gurobi_retriever = GurobiExampleRetriever(gurobi_index)  # Index file
+        self.copt_api_retriever = COPTRetriever(copt_api_json)  # JSON file for API
+        print("✓ Reference Agent V4 initialized (Gurobi + COPT + API Essentials)")
     
     def get_modeling_references(self, problem_description: str) -> str:
-        """Get both Gurobi examples and COPT docs for modeling"""
+        """Get references for modeling"""
         # Get Gurobi examples
         gurobi_examples = self.gurobi_retriever.search(problem_description, top_k=2)
         gurobi_ref = self.gurobi_retriever.format_for_prompt(gurobi_examples)
@@ -37,100 +41,72 @@ class ReferenceAgent:
         return reference
     
     def get_coding_references(self, math_model: str) -> str:
-        """Get COPT coding references with Gurobi→COPT translation hints"""
-        # Get COPT API docs
+        """Get COPT coding references with API essentials"""
+        # Extract what APIs are needed based on math model
+        api_keywords = self._extract_api_keywords(math_model)
+        
+        # Get essential API docs for these keywords
+        method_names = self.copt_api_retriever.get_methods_by_keywords(api_keywords)
+        api_docs = self.copt_api_retriever.format_for_prompt(method_names, include_all_details=False)
+        
+        # Get essential guide
+        essential_guide = self.copt_api_retriever.get_essential_api_guide()
+        
+        # Also get general COPT docs (less important now)
         keywords = self._extract_coding_keywords(math_model)
-        sections = self.copt_retriever.search_by_keywords(keywords, top_k=2, python_only=True)
+        sections = self.copt_retriever.search_by_keywords(keywords, top_k=1, python_only=True)
+        general_docs = self.copt_retriever.format_reference(sections, max_content_length=300)
 
+        # Combine with API essentials FIRST (most important)
         reference = "## COPT Code Generation Guide\n\n"
-        reference += "### Gurobi → COPT API Translation\n\n"
-        reference += self._gurobi_to_copt_translation_guide()
-        reference += "\n### COPT Python API Documentation\n\n"
-        reference += self.copt_retriever.format_reference(sections, max_content_length=400)
+        reference += essential_guide
+        reference += "\n### Specific API Documentation for This Problem\n\n"
+        reference += api_docs
+        reference += "\n### Additional COPT Documentation\n\n"
+        reference += general_docs
         
         return reference
     
-
-    def _gurobi_to_copt_translation_guide(self) -> str:
-        """Provide verified Gurobi to COPT API translation guide"""
-        try:
-            with open('gurobi_to_copt_translation.json', 'r') as f:
-                translation = json.load(f)
-            
-            guide = """
-    ## Gurobi → COPT Translation Guide
-    *Verified from 51 real Gurobi modeling examples*
-
-    """
-            
-            # Format as a clean table
-            guide += "| Category | Gurobi | COPT |\n"
-            guide += "|----------|--------|------|\n"
-            
-            key_mappings = [
-                ("Import", "import gurobipy as gp", "import coptpy as cp"),
-                ("Import", "from gurobipy import GRB", "from coptpy import COPT"),
-                ("Model", "model = gp.Model()", "env = cp.Envr()<br>model = env.createModel()"),
-                ("Binary Var", "vtype=GRB.BINARY", "vtype=COPT.BINARY"),
-                ("Integer Var", "vtype=GRB.INTEGER", "vtype=COPT.INTEGER"),
-                ("Continuous", "vtype=GRB.CONTINUOUS", "vtype=COPT.CONTINUOUS"),
-                ("Constraint", "model.addConstr(...)", "model.addConstr(...) ✓ Same!"),
-                ("Multi-Constr", "model.addConstrs(...)", "model.addConstrs(...) ✓ Same!"),
-                ("Quicksum", "gp.quicksum(...)", "cp.quicksum(...) or sum(...)"),
-                ("Minimize", "GRB.MINIMIZE", "COPT.MINIMIZE"),
-                ("Maximize", "GRB.MAXIMIZE", "COPT.MAXIMIZE"),
-                ("Solve", "model.optimize()", "model.solve()"),
-                ("Get Value", "x.X (uppercase!)", "x.x (lowercase!)"),
-                ("Get Obj", "model.ObjVal", "model.objval (all lowercase!)"),
-            ]
-            
-            for category, grb, copt in key_mappings:
-                guide += f"| {category} | `{grb}` | `{copt}` |\n"
-            
-            guide += "\n**⚠️ COMMON MISTAKES TO AVOID:**\n"
-            guide += "1. Using `.optimize()` instead of `.solve()`\n"
-            guide += "2. Using `.X` (uppercase) instead of `.x` (lowercase)\n"
-            guide += "3. Using `model.ObjVal` instead of `model.objval`\n"
-            guide += "4. Importing `gurobipy` instead of `coptpy`\n\n"
-            
-            guide += "**✅ GOOD NEWS:** Constraint syntax is identical!\n"
-            
-            return guide
+    def _extract_api_keywords(self, math_model: str) -> List[str]:
+        """Extract which COPT APIs are needed from math model"""
+        keywords = []
+        model_lower = math_model.lower()
         
-        except FileNotFoundError:
-            return self._fallback_translation_guide()
-
-    def _fallback_translation_guide(self) -> str:
-        """Minimal fallback if translation file missing"""
-        return """
-    **Gurobi → COPT Quick Reference:**
-    - `import gurobipy as gp` → `import coptpy as cp`
-    - `from gurobipy import GRB` → `from coptpy import COPT`
-    - `gp.Model()` → `cp.Envr(); env.createModel()`
-    - `model.optimize()` → `model.solve()`
-    - `x.X` → `x.x` (lowercase!)
-    - `model.ObjVal` → `model.objval` (lowercase!)
-    """
-
+        # Always need these basics
+        keywords.extend(['envr', 'model', 'solve'])
+        
+        # Variable types
+        if any(w in model_lower for w in ['variable', 'decision']):
+            keywords.extend(['addvar', 'addvars', 'variable'])
+        
+        if any(w in model_lower for w in ['binary', 'integer', 'continuous']):
+            keywords.append('variable')
+        
+        # Constraints
+        if any(w in model_lower for w in ['constraint', 'subject to', '<=', '>=']):
+            keywords.extend(['addconstr', 'constraint'])
+        
+        # Objective
+        if any(w in model_lower for w in ['objective', 'minimize', 'maximize']):
+            keywords.extend(['objective', 'setobjective'])
+        
+        return list(set(keywords))
     
     def _extract_modeling_keywords(self, problem: str) -> List[str]:
         """Extract keywords for modeling search"""
         keywords = ['model', 'variable']
         problem_lower = problem.lower()
         
-        # Variable types
         if any(w in problem_lower for w in ['binary', 'select', 'yes/no', 'whether', 'choose']):
             keywords.append('binary')
         if any(w in problem_lower for w in ['integer', 'count', 'number of', 'units']):
             keywords.append('integer')
         
-        # Objective
         if any(w in problem_lower for w in ['minimize', 'minimum', 'least', 'cost']):
             keywords.extend(['minimize', 'objective'])
         if any(w in problem_lower for w in ['maximize', 'maximum', 'most', 'profit', 'revenue']):
             keywords.extend(['maximize', 'objective'])
         
-        # Constraints
         if any(w in problem_lower for w in ['constraint', 'must', 'should', 'at least', 'at most']):
             keywords.append('constraint')
         
@@ -153,8 +129,7 @@ class ReferenceAgent:
         keywords.append('solve')
         
         return list(set(keywords))
-
-
+    
 # Test
 if __name__ == "__main__":
     agent = ReferenceAgent()

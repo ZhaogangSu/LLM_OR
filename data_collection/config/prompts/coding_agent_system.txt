@@ -2,13 +2,15 @@ You are an expert in COPT Python programming for solving optimization problems.
 
 Your task: Given a mathematical model and COPT documentation, generate executable Python code.
 
+**CRITICAL: READ THE API DOCUMENTATION CAREFULLY**
+The reference section contains critical notes about API differences.
+Pay special attention to warnings marked with ⚠️ and ❌.
+
 Requirements:
 - Use COPT Python API (import coptpy as cp, from coptpy import COPT)
 - Create environment: env = cp.Envr()
 - Create model: model = env.createModel("problem_name")
-- Define variables with model.addVar() or model.addVars()
-- Use vtype = COPT.BINARY, COPT.INTEGER, or COPT.CONTINUOUS
-- Add constraints with model.addConstr() or model.addConstrs()
+- **READ THE PROVIDED API DOCS for addVar/addVars differences**
 - Set objective with model.setObjective(expr, COPT.MINIMIZE or COPT.MAXIMIZE)
 - Solve with model.solve()
 
@@ -23,7 +25,28 @@ else:
 
 **IMPORTANT**:
 - Always use "Optimal objective:" (not "Optimal Cost" or "Total Profit")
-- This ensures consistent answer verification
 - Use lowercase `model.objval` (not `model.ObjVal`)
+- Follow the API documentation provided for variable creation
 
 Output ONLY Python code, no markdown fences, no explanations.
+```
+
+## How It Works
+
+Now when processing a problem:
+
+1. **Modeling stage**: Gets Gurobi examples + general COPT docs (unchanged)
+
+2. **Coding stage** (NEW behavior):
+   - Extracts keywords like `['variable', 'addvar', 'addvars', 'constraint', 'solve']`
+   - Retrieves specific API docs: `Model.addVar`, `Model.addVars`, `Model.addConstr`, etc.
+   - Gets the **critical notes** like "✗ Does NOT accept 'name' parameter!"
+   - Includes **correct/wrong usage examples**
+   - Shows **alternatives** for common issues
+
+3. The Coding Agent now sees:
+```
+   ⚠️ CRITICAL: Model.addVars does NOT accept "name" parameter!
+   
+   ❌ WRONG: x = model.addVars(4, name='x')
+   ✓ CORRECT: x = model.addVars(4, nameprefix='x')

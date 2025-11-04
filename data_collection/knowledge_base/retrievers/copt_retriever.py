@@ -1,4 +1,4 @@
-# copt_retriever_v2.py
+# copt_retriever.py
 import json
 import re
 from typing import List, Dict
@@ -8,7 +8,7 @@ import numpy as np
 class COPTRetriever:
     """Improved retriever with Python API focus"""
     
-    def __init__(self, kb_dir="copt_knowledge_base"):
+    def __init__(self, kb_dir="knowledge_base/data/copt_knowledge_base"):
         self.kb_dir = kb_dir
         self.sections = self._load_sections()
         self._filter_python_sections()
@@ -18,7 +18,9 @@ class COPTRetriever:
     def _load_sections(self):
         """Load all sections"""
         sections = []
-        with open(f"{self.kb_dir}/copt_flat_sections.jsonl", 'r', encoding='utf-8') as f:
+        # FIX: Construct the correct file path
+        jsonl_file = f"{self.kb_dir}/copt_flat_sections.jsonl"
+        with open(jsonl_file, 'r', encoding='utf-8') as f:
             for line in f:
                 sections.append(json.loads(line))
         return sections
@@ -143,27 +145,6 @@ class COPTRetriever:
         
         return results
     
-    def get_code_examples(self, topic: str, max_examples: int = 5) -> List[str]:
-        """Get Python code examples for specific topic"""
-        results = self.search_by_keywords([topic], top_k=10, python_only=True)
-        
-        code_examples = []
-        seen_codes = set()
-        
-        for section in results:
-            for code in section['code_examples']:
-                code_clean = code.strip()
-                # Deduplicate and filter
-                if (topic.lower() in code_clean.lower() and 
-                    code_clean not in seen_codes and
-                    20 < len(code_clean) < 500):  # Reasonable length
-                    code_examples.append(code_clean)
-                    seen_codes.add(code_clean)
-                    if len(code_examples) >= max_examples:
-                        return code_examples
-        
-        return code_examples
-    
     def format_reference(self, sections: List[Dict], 
                         max_content_length: int = 800) -> str:
         """Format retrieved sections as concise reference"""
@@ -194,36 +175,21 @@ class COPTRetriever:
             reference_text += "\n---\n\n"
         
         return reference_text
-
-
-# Test improved retriever
+    
+# Test
 if __name__ == "__main__":
     retriever = COPTRetriever()
     
-    print("=" * 70)
-    print("Test 1: Search 'binary variable' (Python only)")
-    print("=" * 70)
-    results = retriever.search_by_keywords(['binary', 'variable'], 
-                                          top_k=3, python_only=True)
-    for i, section in enumerate(results, 1):
-        print(f"\n{i}. {section['title']}")
-        print(f"   Score: {section['relevance_score']:.2f}")
-        print(f"   Python: {section['is_python']}")
-        print(f"   Content length: {len(section['content'])} chars")
-        print(f"   Code examples: {len(section['code_examples'])}")
+    print("="*70)
+    print("Test 1: Get methods for variable creation")
+    print("="*70)
+    methods = retriever.get_methods_by_keywords(['variable', 'addvars'])
+    print(f"Found methods: {methods}\n")
     
-    print("\n" + "=" * 70)
-    print("Test 2: Get Python code examples for 'addVar'")
-    print("=" * 70)
-    examples = retriever.get_code_examples('addVar', max_examples=3)
-    for i, code in enumerate(examples, 1):
-        print(f"\nExample {i}:")
-        print(code)
-    
-    print("\n" + "=" * 70)
-    print("Test 3: Search for 'constraint' with formatted output")
-    print("=" * 70)
-    results = retriever.search_by_keywords(['constraint', 'linear'], 
-                                          top_k=2, python_only=True)
-    formatted = retriever.format_reference(results, max_content_length=400)
+    formatted = retriever.format_for_prompt(methods, include_all_details=False)
     print(formatted)
+    
+    print("\n" + "="*70)
+    print("Test 2: Essential API Guide")
+    print("="*70)
+    print(retriever.get_essential_api_guide())
