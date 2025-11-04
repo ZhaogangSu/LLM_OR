@@ -1,134 +1,322 @@
-# OR Multi-Agent Data Collection
+# OR Multi-Agent Data Collection System
 
-Automated data collection system for Operations Research problems using multi-agent framework with reasoning LLMs.
+Production-ready data collection system for Operations Research problems using multi-agent framework with reasoning LLMs.
 
-## Quick Start
+## 🚀 Quick Start
+
+### 1. Installation
+
 ```bash
-# 1. Configure API keys
+# Install dependencies
+pip install openai anthropic pyyaml python-dotenv tqdm beautifulsoup4 requests lxml faiss-cpu pytest coptpy
+
+# Install COPT solver (required)
+# Follow instructions at: https://www.copt.com
+```
+
+### 2. Configuration
+
+```bash
+# Add your API keys
 echo "your-api-key-1" > config/API_keys.txt
 echo "your-api-key-2" >> config/API_keys.txt
 
-# 2. Run multi-agent data collection
-cd scripts
-./run_data_collection.sh
-
-# 3. Run baseline comparison
-./run_baseline.sh
-
-# 4. Check answer correctness
-python -m baselines.check_answer_correctness \
-    --file ../outputs/collected_data/mamo_complex/training_data.jsonl
+# Configure LLM provider (optional - defaults to Qwen)
+# Edit config/config.yaml to switch providers:
+# llm:
+#   provider: "qwen"  # or "openai", "deepseek", "anthropic"
 ```
 
-## Project Structure
+### 3. Run Data Collection
+
+```bash
+# Process problems with default settings
+python scripts/run_collection.py \
+    --input ../benchmark/Mamo_complex_lp_clean.jsonl \
+    --output outputs/mamo_complex
+
+# With custom settings
+python scripts/run_collection.py \
+    --input ../benchmark/NL4Opt_clean.jsonl \
+    --output outputs/nl4opt \
+    --workers 4 \
+    --max-problems 50
 ```
+
+### 4. Run Baseline Comparison
+
+```bash
+python scripts/run_baseline.py \
+    --input ../benchmark/Mamo_complex_lp_clean.jsonl \
+    --output outputs/baseline_mamo
+```
+
+### 5. Validate Results
+
+```bash
+python scripts/validate_results.py \
+    --file outputs/mamo_complex/training_data.jsonl
+```
+
+---
+
+## 📁 Project Structure
+
+```
+data_collection/
+├── config/                          # Configuration management
+│   ├── config.yaml                  # Main configuration file
+│   ├── config_loader.py             # Config loader utility
+│   ├── prompt_loader.py             # Prompt loader utility
+│   ├── API_keys.txt                 # API keys (one per line)
+│   └── prompts/                     # Externalized prompts
+│       ├── modeling_agent_*.txt     # Modeling prompts
+│       ├── coding_agent_*.txt       # Coding prompts
+│       └── debugging_*.txt          # Debugging prompts
+│
+├── core/                            # Core utilities
+│   ├── llm_client.py                # Abstract LLM client (multi-provider)
+│   ├── code_executor.py             # Code execution utility
+│   └── answer_checker.py            # Answer validation utility
+│
 ├── agents/                          # Multi-agent framework
-│   ├── multi_agent_collector.py    # Main collector: orchestrates 5-stage pipeline
-│   └── parallel_collection.py      # Parallel execution wrapper
+│   ├── base_agent.py                # Abstract base agent
+│   ├── modeling_agent.py            # Mathematical modeling
+│   ├── coding_agent.py              # Code generation
+│   ├── debugging_agent.py           # Debugging & repair
+│   └── reference_agent.py           # Knowledge retrieval
+│
+├── pipeline/                        # Pipeline orchestration
+│   ├── collector.py                 # Multi-agent orchestrator
+│   ├── data_formatter.py            # Training data formatter
+│   └── parallel_executor.py         # Parallel execution manager
+│
+├── scripts/                         # Entry points
+│   ├── run_collection.py            # Main collection pipeline
+│   ├── run_baseline.py              # Baseline comparison
+│   └── validate_results.py          # Results validation
+│
 ├── baselines/                       # Baseline experiments
-│   ├── direct_qwen_baseline.py     # Direct Qwen-Max prompting (no framework)
-│   └── check_answer_correctness.py # Verify solution correctness
-├── knowledge_base/                  # Knowledge retrieval system
-│   ├── builders/                    # Build knowledge bases
-│   │   ├── build_gurobi_kb.py      # Index Gurobi modeling examples
-│   │   ├── copt_web_crawler.py     # Crawl COPT documentation
-│   │   ├── extract_gurobi_patterns.py  # Extract API patterns
-│   │   └── build_verified_translation.py  # Build Gurobi→COPT translation
-│   ├── data/                        # Knowledge base data
-│   │   ├── gurobi_modeling_examples/  # Gurobi example notebooks
-│   │   ├── copt_knowledge_base/    # COPT documentation
-│   │   └── *.json                  # Indexed data files
-│   └── retrievers/                  # Retrieval agents
-│       ├── reference_agent.py      # Provides modeling/coding references
-│       ├── gurobi_retriever.py     # Search Gurobi examples
-│       └── copt_retriever.py       # Search COPT documentation
-├── scripts/                         # Execution scripts
-│   ├── run_data_collection.sh      # Run multi-agent pipeline
-│   ├── run_baseline.sh             # Run baseline experiment
-│   ├── test_api.py                 # Test API connectivity
-│   └── inspect_knowledge.py        # Inspect KB contents
-├── outputs/                         # All outputs
-│   ├── collected_data/             # Multi-agent results
-│   ├── baseline_results/           # Baseline results
-│   └── answer_correctness_report.json
-└── config/
-    └── API_keys.txt                # API keys (one per line)
+│   ├── direct_qwen_baseline.py      # Direct prompting baseline
+│   └── check_answer_correctness.py  # Answer validation
+│
+├── knowledge_base/                  # Knowledge retrieval (out of scope)
+│   └── retrievers/                  # Gurobi & COPT knowledge base
+│
+├── tests/                           # Test suite
+│   ├── test_phase1_integration.py   # Phase 1 tests
+│   ├── test_phase2_agents.py        # Phase 2 tests
+│   └── test_phase3_pipeline.py      # Phase 3 tests
+│
+└── outputs/                         # All outputs
+    ├── collected_data/              # Training data
+    └── baseline_results/            # Baseline results
 ```
 
-## File Roles
+---
 
-### Core System
+## 🏗️ Architecture
 
-| File | Role |
-|------|------|
-| `multi_agent_collector.py` | Orchestrates 5 agents: Reference(modeling) → Modeling → Reference(coding) → Coding → Debugging |
-| `parallel_collection.py` | Parallel execution with multiple API keys and workers |
-| `reference_agent.py` | Retrieves relevant Gurobi examples and COPT docs for each stage |
+### Multi-Agent Pipeline
 
-### Knowledge Base
+The system uses a 5-stage pipeline:
 
-| File | Role |
-|------|------|
-| `build_gurobi_kb.py` | Index 51 Gurobi modeling examples into searchable JSON |
-| `copt_web_crawler.py` | Crawl and extract COPT API documentation |
-| `extract_gurobi_patterns.py` | Analyze Gurobi code to extract common API patterns |
-| `build_verified_translation.py` | Build Gurobi→COPT API translation guide |
-| `gurobi_retriever.py` | Search Gurobi examples by keywords |
-| `copt_retriever.py` | Search COPT docs by semantic similarity |
-
-### Baselines & Analysis
-
-| File | Role |
-|------|------|
-| `direct_qwen_baseline.py` | Direct Qwen-Max prompting without multi-agent framework |
-| `check_answer_correctness.py` | Validate solutions against ground truth |
-
-### Utilities
-
-| File | Role |
-|------|------|
-| `test_api.py` | Test API key validity and connectivity |
-| `inspect_knowledge.py` | Inspect knowledge base contents |
-| `run_data_collection.sh` | Main pipeline launcher |
-| `run_baseline.sh` | Baseline experiment launcher |
-
-## Multi-Agent Pipeline
 ```
-Problem → [1] Reference Agent (modeling) → [2] Modeling Agent 
-       → [3] Reference Agent (coding) → [4] Coding Agent 
-       → [5] Debugging Agent → Solution
+Problem → [1] Reference Agent (modeling) → [2] Modeling Agent
+       → [3] Reference Agent (coding)   → [4] Coding Agent
+       → [5] Debugging Agent            → Solution
 ```
 
-**Stage 1**: Retrieve relevant Gurobi examples for mathematical modeling  
-**Stage 2**: Generate mathematical formulation (variables, objective, constraints)  
-**Stage 3**: Retrieve COPT API docs and Gurobi→COPT translation  
-**Stage 4**: Generate executable COPT Python code  
+**Stage 1**: Retrieve relevant Gurobi examples for mathematical modeling
+**Stage 2**: Generate mathematical formulation (variables, objective, constraints)
+**Stage 3**: Retrieve COPT API docs and Gurobi→COPT translation
+**Stage 4**: Generate executable COPT Python code
 **Stage 5**: Execute code, debug errors, verify answer (max 3 attempts)
 
-## Configuration
+### Key Components
 
-Edit `scripts/run_data_collection.sh` to configure:
-```bash
---input_file       # Input problem file (.jsonl)
---output_dir       # Output directory
---num_workers      # Parallel workers (default: 9)
---max_problems     # Limit number of problems (optional)
---kb_dir           # Knowledge base directory
+**Core Layer**: Low-level utilities
+- `llm_client.py`: Abstract LLM interface (supports Qwen/OpenAI/DeepSeek/Anthropic)
+- `code_executor.py`: Safe code execution with timeout
+- `answer_checker.py`: Answer validation with tolerance
+
+**Agent Layer**: Business logic
+- `ModelingAgent`: Converts problems → mathematical models
+- `CodingAgent`: Converts models → COPT Python code
+- `DebuggingAgent`: Executes, debugs, and repairs code
+- `ReferenceAgent`: Retrieves knowledge from Gurobi/COPT databases
+
+**Pipeline Layer**: Orchestration
+- `DataCollector`: Orchestrates the 5-stage agent pipeline
+- `DataFormatter`: Formats outputs into training data
+- `ParallelExecutor`: Manages parallel execution with progress tracking
+
+---
+
+## ⚙️ Configuration
+
+### Switch LLM Provider
+
+Edit `config/config.yaml`:
+
+```yaml
+llm:
+  provider: "openai"  # Change from "qwen" to "openai"
 ```
 
-## Results
+Supported providers: `qwen`, `openai`, `deepseek`, `anthropic`
 
-Current performance on MAMO Complex LP (111 problems):
-- **Multi-Agent Framework**: 61.3% correctness
-- **Baseline (Direct Qwen)**: Run `./scripts/run_baseline.sh` to compare
+### Modify Prompts
 
-## Requirements
-```bash
-pip install openai tqdm beautifulsoup4 requests sentence-transformers faiss-cpu
+Edit files in `config/prompts/`:
+- No code changes needed
+- Changes take effect immediately
+- Easy to version control and A/B test
+
+### Adjust Pipeline Settings
+
+Edit `config/config.yaml`:
+
+```yaml
+pipeline:
+  max_debug_attempts: 3      # Max debugging attempts
+  answer_tolerance: 0.1      # Answer validation tolerance
+  parallel_workers: 9        # Parallel workers
+  code_execution_timeout: 30 # Code timeout (seconds)
 ```
 
-COPT solver must be installed for code execution.
+---
 
-## License
+## 📊 Results
+
+### Current Performance on MAMO Complex LP (111 problems):
+
+| Method | Success Rate | Correctness Rate |
+|--------|--------------|------------------|
+| Multi-Agent Framework | 61.3% | 61.3% |
+| Direct Qwen Baseline | TBD | TBD |
+
+---
+
+## 🧪 Testing
+
+```bash
+# Run all tests
+cd data_collection
+python -m pytest tests/ -v
+
+# Run specific test suite
+python tests/test_phase1_integration.py
+python tests/test_phase2_agents.py
+python tests/test_phase3_pipeline.py
+```
+
+---
+
+## 📖 Usage Examples
+
+### Example 1: Process 10 problems for testing
+
+```bash
+python scripts/run_collection.py \
+    -i ../benchmark/Mamo_easy_lp_clean.jsonl \
+    -o outputs/test_run \
+    -w 2 \
+    -n 10
+```
+
+### Example 2: Use different LLM provider
+
+```bash
+python scripts/run_collection.py \
+    -i ../benchmark/NL4Opt_clean.jsonl \
+    -o outputs/nl4opt_gpt4 \
+    --provider openai
+```
+
+### Example 3: Validate results with custom tolerance
+
+```bash
+python scripts/validate_results.py \
+    -f outputs/mamo_complex/training_data.jsonl \
+    -t 0.5 \
+    -o validation_report.json
+```
+
+---
+
+## 🔧 Development
+
+### Adding a New Agent
+
+1. Create new agent file in `agents/`
+2. Inherit from `BaseAgent`
+3. Implement `execute()` method
+4. Use `self._call_llm()` for LLM calls
+5. Use `self._load_prompt()` for prompts
+
+Example:
+
+```python
+from agents.base_agent import BaseAgent
+
+class MyNewAgent(BaseAgent):
+    def execute(self, **kwargs):
+        system = self._load_prompt('my_agent_system')
+        user = self._format_prompt('my_agent_user', **kwargs)
+        return self._call_llm(system, user)
+```
+
+### Adding a New LLM Provider
+
+1. Edit `core/llm_client.py`
+2. Create new class inheriting `BaseLLMClient`
+3. Implement `call()` method
+4. Add to factory function `create_single_llm_client()`
+5. Add config section to `config/config.yaml`
+
+---
+
+## 🐛 Troubleshooting
+
+### Issue: LLM API timeout
+
+**Solution**:
+- Check API keys are valid
+- Check network connection
+- Increase timeout in `config/config.yaml`
+- Reduce `--workers` to lower rate limit pressure
+
+### Issue: COPT not found
+
+**Solution**:
+```bash
+pip install coptpy
+# Or follow COPT installation guide
+```
+
+### Issue: Wrong answers
+
+**Solution**:
+- Check problem format matches expected input
+- Review generated code in output files
+- Adjust `answer_tolerance` if needed
+- Check if ground truth answers are correct
+
+---
+
+## 📄 License
 
 [Your License Here]
+
+---
+
+## 🤝 Contributing
+
+[Your Contributing Guidelines Here]
+
+---
+
+## 📧 Contact
+
+[Your Contact Information Here]

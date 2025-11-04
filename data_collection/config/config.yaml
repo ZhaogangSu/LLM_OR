@@ -2,41 +2,63 @@
 # LLM Provider Configuration
 # ============================================
 llm:
-  # Provider: qwen | openai | deepseek | anthropic
+  # 当前使用的模型：deepseek-r1 | qwq-32b-preview | qwen-max
+  # 都通过百炼平台的 qwen provider 调用
   provider: "qwen"
-
-  # Model configuration per provider
+  
+  # 百炼平台配置 - DeepSeek-R1 推理模型
   qwen:
-    model: "qwen-max"
+    model: "deepseek-r1"  # 修改为推理模型
     base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
     temperature: 0.7
     max_tokens: 4000
     timeout: 60
     max_retries: 3
-
-  openai:
-    model: "gpt-4"
-    base_url: "https://api.openai.com/v1"
-    temperature: 0.7
-    max_tokens: 4000
-    timeout: 60
-    max_retries: 3
-
-  deepseek:
-    model: "deepseek-chat"
-    base_url: "https://api.deepseek.com/v1"
-    temperature: 0.7
-    max_tokens: 4000
-    timeout: 60
-    max_retries: 3
-
-  anthropic:
-    model: "claude-3-5-sonnet-20241022"
-    base_url: "https://api.anthropic.com/v1"
-    temperature: 0.7
-    max_tokens: 4000
-    timeout: 60
-    max_retries: 3
+  
+  # 备选配置 - QwQ-32B-Preview 推理模型
+  # 要使用此模型，修改上面 qwen.model 为 "qwq-32b-preview"
+  # qwen:
+  #   model: "qwq-32b-preview"
+  #   base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+  #   temperature: 0.7
+  #   max_tokens: 4000
+  #   timeout: 60
+  #   max_retries: 3
+  
+  # 备选配置 - Qwen-Max (非推理模型)
+  # qwen:
+  #   model: "qwen-max"
+  #   base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+  #   temperature: 0.7
+  #   max_tokens: 4000
+  #   timeout: 60
+  #   max_retries: 3
+  
+  # ===== 暂时不用的配置 (已注释) =====
+  
+  # openai:
+  #   model: "gpt-4"
+  #   base_url: "https://api.openai.com/v1"
+  #   temperature: 0.7
+  #   max_tokens: 4000
+  #   timeout: 60
+  #   max_retries: 3
+  
+  # deepseek:
+  #   model: "deepseek-chat"
+  #   base_url: "https://api.deepseek.com/v1"
+  #   temperature: 0.7
+  #   max_tokens: 4000
+  #   timeout: 60
+  #   max_retries: 3
+  
+  # anthropic:
+  #   model: "claude-3-5-sonnet-20241022"
+  #   base_url: "https://api.anthropic.com/v1"
+  #   temperature: 0.7
+  #   max_tokens: 4000
+  #   timeout: 60
+  #   max_retries: 3
 
 # ============================================
 # Knowledge Base Paths
@@ -69,5 +91,5 @@ paths:
 # Logging Configuration
 # ============================================
 logging:
-  level: "INFO"  # DEBUG | INFO | WARNING | ERROR
+  level: "INFO"
   format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
