@@ -1,18 +1,7 @@
-"""
-Pipeline orchestration for multi-agent OR problem solving.
-
-Components:
-- Collector: Orchestrates the 5-stage agent pipeline
-- DataFormatter: Formats agent outputs into training data
-- ParallelExecutor: Runs collection in parallel with progress tracking
-"""
-
-from .collector import DataCollector
-from .data_formatter import DataFormatter
-from .parallel_executor import ParallelExecutor
-
-__all__ = [
-    'DataCollector',
-    'DataFormatter',
-    'ParallelExecutor'
-]
+"""Pipeline orchestration"""
+def __getattr__(name):
+    if name == 'DataCollector': from .collector import DataCollector; return DataCollector
+    elif name == 'DataFormatter': from .data_formatter import DataFormatter; return DataFormatter
+    elif name == 'ParallelExecutor': from .parallel_executor import ParallelExecutor; return ParallelExecutor
+    raise AttributeError(f"module 'pipeline' has no attribute '{name}'")
+__all__ = ['DataCollector', 'DataFormatter', 'ParallelExecutor']
