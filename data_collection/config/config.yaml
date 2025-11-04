@@ -25,6 +25,15 @@ llm:
     timeout: 60
     max_retries: 3
   
+  # 备选配置 - Qwen3-Max-Thinking-Preview (推理模型)
+  # qwen:
+  #   model: "Qwen3-Max-Preview"
+  #   base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+  #   temperature: 0.5
+  #   max_tokens: 16384
+  #   timeout: 60
+  #   max_retries: 3
+  
   # 备选配置 - Qwen-Max (非推理模型)
   # qwen:
   #   model: "qwen-max"

@@ -46,17 +46,17 @@ class DirectQwenSolver:
             base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"
         )
     
-    def _call_llm(self, system_prompt, user_prompt, max_tokens=8192):
+    def _call_llm(self, system_prompt, user_prompt, max_tokens=16384):
         """Call Qwen-Max"""
         client = self._get_client()
         response = client.chat.completions.create(
-            model="qwen-max",
+            model="qwq-32b-preview",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
             max_tokens=max_tokens,
-            temperature=0.7
+            temperature=0.5
         )
         return response.choices[0].message.content
     

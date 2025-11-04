@@ -10,7 +10,7 @@ python -m baselines.direct_qwen_baseline \
     --input_file ../benchmark/Mamo_complex_lp_clean.jsonl \
     --output_dir outputs/baseline_results/mamo_complex \
     --api_keys config/API_keys.txt \
-    --num_workers 9 \
+    --num_workers 12 \
     --max_problems 111
 
 echo ""
