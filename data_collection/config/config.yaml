@@ -86,8 +86,9 @@ knowledge_base:
 pipeline:
   max_debug_attempts: 3
   answer_tolerance: 0.1
-  parallel_workers: 9
+  parallel_workers: 12
   code_execution_timeout: 30
+  condensed_references: true
 
 # ============================================
 # Paths Configuration

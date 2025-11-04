@@ -69,23 +69,30 @@ class DataFormatter:
             # Execution result
             if attempt['execution']['success']:
                 response_parts.append("✓ Code execution successful!")
-
-                # Answer check
-                if 'answer_check' in attempt:
-                    answer_check = attempt['answer_check']
-                    if answer_check['correct']:
-                        response_parts.append(f"\n✓ Answer verified: {answer_check['status']}")
-                    else:
-                        response_parts.append(f"\n✗ Wrong answer: {answer_check['status']}")
             else:
-                response_parts.append(f"✗ Execution failed: {attempt['execution']['error']}")
+                error_msg = str(attempt['execution'].get('error', 'Unknown error'))[:200]
+                response_parts.append(f"✗ Execution failed: {error_msg}")
 
-                # Repair action
-                if 'repair_action' in attempt:
-                    response_parts.append(f"\nRepair action: {attempt['repair_action']}")
+            # Answer check
+            if 'answer_check' in attempt:
+                answer_check = attempt['answer_check']
+                if answer_check['correct']:
+                    response_parts.append(f"\n✓ Answer verified: {answer_check['status']}")
+                else:
+                    response_parts.append(f"\n✗ Wrong answer: {answer_check['status']}")
+
+            # Include LLM reasoning if available
+            if attempt.get('reasoning'):
+                response_parts.append("\n\n## Debugging Analysis\n")
+                response_parts.append(str(attempt['reasoning']))
+
+            # Show repaired code if available
+            if attempt.get('repaired_code'):
+                response_parts.append("\n\n## Repaired Code\n")
+                response_parts.append(f"```python\n{attempt['repaired_code']}\n```")
 
             response_parts.append("</think_stage>\n")
-
+        
         # Final answer
         response_parts.append("\n<final_code>")
         response_parts.append(f"```python\n{debug_result['final_code']}\n```")

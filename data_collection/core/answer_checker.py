@@ -63,13 +63,21 @@ def check_answer_correctness(
     try:
         gt_value = float(ground_truth)
     except ValueError:
-        return False, None, f"Cannot parse ground truth: {ground_truth}"
+        return {
+            'correct': None,
+            'predicted': None,
+            'status': None
+        }
 
     # Extract predicted value
     pred_value = extract_answer_from_output(execution_output)
 
     if pred_value is None:
-        return False, None, "Could not extract numerical answer from output"
+        return {
+            'correct': False,
+            'predicted': None,
+            'status': None
+        }
 
     # Compare with tolerance
     error = abs(pred_value - gt_value)
@@ -80,7 +88,11 @@ def check_answer_correctness(
     else:
         status = f"✗ Incorrect (predicted={pred_value}, expected={gt_value}, error={error:.6f})"
 
-    return is_correct, pred_value, status
+    return {
+        'correct': is_correct,
+        'predicted': pred_value,
+        'status': status
+    }
 
 
 # Standalone function for backward compatibility
@@ -97,7 +109,9 @@ def check_answer_correctness_simple(execution_output: str, ground_truth: str, to
         bool: True if correct
     """
     is_correct, _, _ = check_answer_correctness(execution_output, ground_truth, tolerance)
-    return is_correct
+    return {
+        'correct': is_correct
+    }
 
 
 # Test

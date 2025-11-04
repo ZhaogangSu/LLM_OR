@@ -46,25 +46,14 @@ class ReferenceAgent:
             - knowledge_base.translation_guide
         """
         kb_config = config.get('knowledge_base', {})
-        
-        # Validate required paths
-        required_paths = {
-            'gurobi_index': kb_config.get('gurobi_index'),
-            'copt_api_json': kb_config.get('copt_api_json')
-        }
-        
-        missing = [k for k, v in required_paths.items() if not v]
-        if missing:
-            raise ValueError(f"Missing required config keys: {missing}")
-        
-        # Initialize knowledge base agent
         self.kb_agent = KBReferenceAgent(
             gurobi_index=kb_config['gurobi_index'],
             copt_api_json=kb_config['copt_api_json'],
             translation_guide=kb_config.get('translation_guide')
         )
         
-        print("✓ ReferenceAgent wrapper initialized")
+        self.condensed_mode = config.get('pipeline', {}).get('condensed_references', True)
+        print(f"✓ ReferenceAgent wrapper initialized (condensed={self.condensed_mode})")
     
     def get_modeling_references(self, problem: str) -> str:
         """
@@ -76,7 +65,10 @@ class ReferenceAgent:
         Returns:
             str: Formatted references (Gurobi examples)
         """
-        return self.kb_agent.get_modeling_references(problem)
+        return self.kb_agent.get_modeling_references(
+            problem, 
+            condensed=self.condensed_mode  # Pass through
+        )
     
     def get_coding_references(self, math_model: str) -> str:
         """
@@ -88,7 +80,10 @@ class ReferenceAgent:
         Returns:
             str: Formatted references (COPT API essentials)
         """
-        return self.kb_agent.get_coding_references(math_model)
+        return self.kb_agent.get_coding_references(
+            math_model,
+            condensed=self.condensed_mode  # Pass through
+        )
 
 
 # Test

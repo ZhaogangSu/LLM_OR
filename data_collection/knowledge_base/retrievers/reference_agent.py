@@ -65,20 +65,17 @@ class ReferenceAgent:
         
         print("✓ Reference Agent initialized (Gurobi + COPT API only)")
     
-    def get_modeling_references(self, problem_description: str) -> str:
+    def get_modeling_references(
+        self, 
+        problem_description: str,
+        condensed: bool = False  # NEW PARAMETER
+    ) -> str:
         """
         Get references for mathematical modeling
         
-        Strategy:
-        1. Search Gurobi examples for similar problems
-        2. Format examples with modeling patterns
-        3. Add note about using COPT syntax for code
-        
         Args:
-            problem_description: Natural language problem description
-            
-        Returns:
-            Formatted modeling guidance with examples
+            problem_description: Problem text
+            condensed: If True, return condensed version for training data
         """
         # Get relevant Gurobi examples
         gurobi_examples = self.gurobi_retriever.search(
@@ -86,63 +83,77 @@ class ReferenceAgent:
             top_k=2
         )
         
-        # Format as modeling guidance
-        reference = "## Mathematical Modeling Guidance\n\n"
-        reference += "### Similar Problem Examples\n\n"
-        reference += "Learn from these Gurobi modeling examples (patterns apply to any solver):\n\n"
-        reference += self.gurobi_retriever.format_for_prompt(gurobi_examples)
+        if condensed:
+            # CONDENSED VERSION (200-300 tokens total)
+            reference = "## Mathematical Modeling Guidance\n\n"
+            reference += self.gurobi_retriever.format_for_prompt(
+                gurobi_examples, 
+                condensed=True  # Use condensed format
+            )
+            reference += "\nApply these patterns using COPT Python API.\n"
+            return reference
         
-        reference += "\n### Important Note\n"
-        reference += "- Use these examples to understand the **modeling approach**\n"
-        reference += "- When writing code, use **COPT Python API** (not Gurobi syntax)\n"
-        reference += "- Focus on: variable types, constraint structure, objective function\n\n"
-        
-        return reference
-    
-    def get_coding_references(self, math_model: str) -> str:
+        else:
+            # ORIGINAL VERBOSE VERSION
+            reference = "## Mathematical Modeling Guidance\n\n"
+            reference += "### Similar Problem Examples\n\n"
+            reference += "Learn from these Gurobi modeling examples:\n\n"
+            reference += self.gurobi_retriever.format_for_prompt(gurobi_examples)
+            
+            reference += "\n### Important Note\n"
+            reference += "- Use these examples to understand the **modeling approach**\n"
+            reference += "- When writing code, use **COPT Python API** (not Gurobi syntax)\n"
+            reference += "- Focus on: variable types, constraint structure, objective function\n\n"
+            
+            return reference
+
+
+    def get_coding_references(
+        self, 
+        math_model: str,
+        condensed: bool = False  # NEW PARAMETER
+    ) -> str:
         """
-        Get COPT API references for code generation
-        
-        Strategy:
-        1. Extract API keywords from mathematical model
-        2. Get relevant COPT API methods
-        3. Include essential guide + specific API docs
-        4. Add translation notes if available
+        Get COPT API references
         
         Args:
-            math_model: Mathematical formulation text
-            
-        Returns:
-            Formatted COPT API documentation
+            math_model: Mathematical formulation
+            condensed: If True, return condensed version
         """
-        # Extract which APIs are needed
         api_keywords = self.copt_api_retriever.extract_api_keywords_from_model(math_model)
-        
-        # Get specific API methods
         method_names = self.copt_api_retriever.get_methods_by_keywords(api_keywords)
         
-        # Build reference document
-        reference = "## COPT Python API Reference\n\n"
-        
-        # 1. Essential guide (always include)
-        reference += "### Essential COPT Workflow\n\n"
-        reference += self.copt_api_retriever.get_essential_guide()
-        
-        # 2. Specific APIs for this problem
-        if method_names:
-            reference += "\n### Specific APIs for This Problem\n\n"
+        if condensed:
+            # CONDENSED VERSION (150-200 tokens)
+            reference = "## COPT API Reference\n\n"
+            reference += self.copt_api_retriever.get_essential_guide(condensed=True)
+            reference += "\n"
             reference += self.copt_api_retriever.format_for_prompt(
                 method_names,
-                include_all_details=True
+                include_all_details=False,
+                condensed=True
             )
+            return reference
         
-        # 3. Translation guide (if available)
-        if self.translation_guide:
-            reference += "\n### Gurobi → COPT Translation\n\n"
-            reference += self._format_translation_guide()
+        else:
+            # ORIGINAL VERBOSE VERSION
+            reference = "## COPT Python API Reference\n\n"
+            reference += "### Essential COPT Workflow\n\n"
+            reference += self.copt_api_retriever.get_essential_guide()
+            
+            if method_names:
+                reference += "\n### Specific APIs for This Problem\n\n"
+                reference += self.copt_api_retriever.format_for_prompt(
+                    method_names,
+                    include_all_details=True
+                )
+            
+            if self.translation_guide:
+                reference += "\n### Gurobi → COPT Translation\n\n"
+                reference += self._format_translation_guide()
+            
+            return reference
         
-        return reference
-    
     def _format_translation_guide(self) -> str:
         """Format Gurobi→COPT translation guide for prompt"""
         if not self.translation_guide:

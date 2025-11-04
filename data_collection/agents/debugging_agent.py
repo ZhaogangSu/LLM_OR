@@ -11,6 +11,41 @@ from core.llm_client import LLMClientPool
 from core.code_executor import CodeExecutor, extract_python_code
 from core.answer_checker import check_answer_correctness
 
+def extract_reasoning_and_code(raw_response: str) -> Dict[str, str]:
+    """Extract both reasoning and code from LLM response"""
+    
+    # Ensure raw_response is a string
+    if not isinstance(raw_response, str):
+        return {
+            'reasoning': "Error: Invalid response type",
+            'code': ""
+        }
+    
+    # Extract code block
+    try:
+        code = extract_python_code(raw_response)
+        if not isinstance(code, str):
+            code = str(code) if code else ""
+    except Exception as e:
+        code = ""
+    
+    # Extract reasoning
+    import re
+    code_pattern = r'```python.*?```'
+    match = re.search(code_pattern, raw_response, re.DOTALL)
+    
+    if match:
+        reasoning = raw_response[:match.start()].strip()
+    else:
+        reasoning = raw_response.strip()
+    
+    if not reasoning:
+        reasoning = "Applied automated repair."
+    
+    return {
+        'reasoning': reasoning,
+        'code': code
+    }
 
 class ErrorType:
     """Error type classification"""
@@ -54,19 +89,8 @@ class DebuggingAgent(BaseAgent):
         math_model: str = "",
         coding_reference: str = ""
     ) -> Dict[str, Any]:
-        """
-        Execute code and repair if needed
+        """Execute and debug code, capturing LLM reasoning"""
         
-        Args:
-            code: Initial Python code
-            problem: Original problem description
-            ground_truth: Expected answer
-            math_model: Mathematical formulation
-            coding_reference: COPT API reference
-            
-        Returns:
-            Dict with success, answer_correct, final_code, result, history
-        """
         print(f"  [{self.agent_name}] Starting debugging process...")
         
         current_code = code
@@ -76,32 +100,30 @@ class DebuggingAgent(BaseAgent):
             print(f"  [{self.agent_name}] Attempt {attempt}/{self.max_attempts}")
             
             # Execute code
-            exec_result = self.executor.execute(current_code, problem)
+            exec_result = self.executor.execute(current_code)
+            print(f"DEBUG: exec_result type = {type(exec_result)}")
+            print(f"DEBUG: exec_result = {exec_result}")
             
-            # Record attempt
+            # Create attempt record
             attempt_record = {
                 'attempt': attempt,
                 'execution': exec_result,
-                'code': current_code
+                'reasoning': None,  # ← NEW: Will store LLM reasoning
+                'repaired_code': None  # ← NEW: Will store repaired code
             }
             
-            # Check if execution succeeded
             if exec_result['success']:
-                # Check answer correctness
-                is_correct, pred_value, status = check_answer_correctness(
+                # Check answer
+                answer_check = check_answer_correctness(
                     exec_result['output'],
                     ground_truth,
-                    self.answer_tolerance
+                    tolerance=self.answer_tolerance
                 )
+                print(f"DEBUG: answer_check type = {type(answer_check)}")
+                print(f"DEBUG: answer_check = {answer_check}")
+                attempt_record['answer_check'] = answer_check
                 
-                attempt_record['answer_check'] = {
-                    'correct': is_correct,
-                    'predicted': pred_value,
-                    'expected': ground_truth,
-                    'status': status
-                }
-                
-                if is_correct:
+                if answer_check['correct']:
                     print(f"  [{self.agent_name}] ✓ Success! Answer is correct.")
                     debug_history.append(attempt_record)
                     
@@ -114,19 +136,20 @@ class DebuggingAgent(BaseAgent):
                         'attempts': attempt
                     }
                 else:
-                    # Execution succeeded but wrong answer
-                    print(f"  [{self.agent_name}] ⚠️  Wrong answer: {status}")
+                    # Wrong answer
+                    print(f"  [{self.agent_name}] ⚠️  Wrong answer: {answer_check['status']}")
                     
                     if attempt < self.max_attempts:
-                        # Classify error and repair
+                        pred_value = answer_check.get('predicted')
                         error_type = self._classify_error(
-                            exec_result['output'], 
-                            exec_result.get('error', ''),
+                            exec_result['output'],
+                            f"Wrong answer: expected {ground_truth}, got {pred_value}",
                             current_code,
                             is_execution_error=False
                         )
                         
-                        current_code = self._smart_repair(
+                        # Get repair with reasoning ← CHANGED
+                        repair_result = self._smart_repair(
                             error_type=error_type,
                             code=current_code,
                             error=f"Wrong answer: expected {ground_truth}, got {pred_value}",
@@ -136,13 +159,28 @@ class DebuggingAgent(BaseAgent):
                             predicted=pred_value,
                             expected=ground_truth
                         )
+                        
+                        # Validate repair_result
+                        if not isinstance(repair_result, dict):
+                            repair_result = {'reasoning': 'Repair error', 'code': current_code}
+
+                        if 'code' not in repair_result:
+                            repair_result['code'] = current_code
+                        if 'reasoning' not in repair_result:
+                            repair_result['reasoning'] = 'No reasoning available'
+                        
+                        # Store reasoning and code ← NEW
+                        attempt_record['reasoning'] = repair_result['reasoning']
+                        attempt_record['repaired_code'] = repair_result['code']
                         attempt_record['repair_action'] = f'smart_repair_{error_type}'
+                        
+                        # Update current code for next attempt
+                        current_code = repair_result['code']
             else:
                 # Execution failed
-                print(f"  [{self.agent_name}] ❌ Execution error: {exec_result['error'][:100]}...")
+                print(f"  [{self.agent_name}] ❌ Execution error")
                 
                 if attempt < self.max_attempts:
-                    # Classify error and repair
                     error_type = self._classify_error(
                         exec_result['output'],
                         exec_result['error'],
@@ -150,7 +188,8 @@ class DebuggingAgent(BaseAgent):
                         is_execution_error=True
                     )
                     
-                    current_code = self._smart_repair(
+                    # Get repair with reasoning ← CHANGED
+                    repair_result = self._smart_repair(
                         error_type=error_type,
                         code=current_code,
                         error=exec_result['error'],
@@ -158,13 +197,27 @@ class DebuggingAgent(BaseAgent):
                         math_model=math_model,
                         coding_reference=coding_reference
                     )
+                    
+                    # Validate repair_result
+                    if not isinstance(repair_result, dict):
+                        repair_result = {'reasoning': 'Repair error', 'code': current_code}
+
+                    if 'code' not in repair_result:
+                        repair_result['code'] = current_code
+                    if 'reasoning' not in repair_result:
+                        repair_result['reasoning'] = 'No reasoning available'
+                    
+                    # Store reasoning and code ← NEW
+                    attempt_record['reasoning'] = repair_result['reasoning']
+                    attempt_record['repaired_code'] = repair_result['code']
                     attempt_record['repair_action'] = f'smart_repair_{error_type}'
+                    
+                    # Update current code
+                    current_code = repair_result['code']
             
             debug_history.append(attempt_record)
         
-        # All attempts exhausted
-        print(f"  [{self.agent_name}] ❌ Failed after {self.max_attempts} attempts")
-        
+        # All attempts failed
         return {
             'success': False,
             'answer_correct': False,
@@ -173,7 +226,7 @@ class DebuggingAgent(BaseAgent):
             'history': debug_history,
             'attempts': self.max_attempts
         }
-    
+
     def _classify_error(
         self,
         output: str,
@@ -226,79 +279,91 @@ class DebuggingAgent(BaseAgent):
         # 6. Default: logic error
         return ErrorType.LOGIC_ERROR
     
-    def _smart_repair(
-        self,
-        error_type: str,
-        code: str,
-        error: str,
-        problem: str,
-        math_model: str,
-        coding_reference: str,
-        predicted: float = None,
-        expected: str = None
-    ) -> str:
-        """
-        Apply appropriate repair strategy based on error type
-        
-        Returns:
-            Repaired code
-        """
-        print(f"  [{self.agent_name}] Applying {error_type} repair strategy...")
-        
-        if error_type == ErrorType.INCOMPLETE_CODE:
-            return self._repair_incomplete_code(
-                code, error, problem, math_model, coding_reference
-            )
-        
-        elif error_type == ErrorType.IMPORT_ERROR:
-            return self._repair_import_error(
-                code, error, problem, math_model, coding_reference
-            )
-        
-        elif error_type == ErrorType.API_ERROR:
-            return self._repair_api_error(
-                code, error, coding_reference
-            )
-        
-        elif error_type == ErrorType.SYNTAX_ERROR:
-            return self._repair_syntax_error(
-                code, error
-            )
-        
-        elif error_type == ErrorType.VARIABLE_TYPE_ERROR:
-            return self._repair_variable_types(
-                code, math_model, predicted, expected
-            )
-        
-        else:  # LOGIC_ERROR
-            return self._repair_logic_error(
-                code, error, problem, math_model
-            )
-    
-    def _repair_incomplete_code(
+    def _repair_variable_types(
         self,
         code: str,
-        error: str,
-        problem: str,
         math_model: str,
-        coding_reference: str
-    ) -> str:
-        """Repair incomplete code generation"""
-        system_prompt = self._load_prompt('debugging_incomplete_code_system')
+        predicted: float,
+        expected: str
+    ) -> Dict[str, str]:  # ← Changed return type
+        """Fix variable type issues - returns reasoning + code"""
+        system_prompt = self._load_prompt('debugging_variable_type_system')
         user_prompt = self._format_prompt(
-            'debugging_incomplete_code_user',
+            'debugging_variable_type_user',
+            math_model=math_model,
+            code=code,
+            predicted=str(predicted) if predicted else "unknown",
+            expected=expected
+        )
+        
+        raw_response = self._call_llm(system_prompt, user_prompt)
+        result = extract_reasoning_and_code(raw_response)  # ← NEW
+        
+        print(f"  [{self.agent_name}] ✓ Fixed variable types")
+        return result  # ← Returns dict with reasoning + code
+    
+    def _repair_logic_error(
+        self,
+        code: str,
+        error: str,
+        problem: str,
+        math_model: str
+    ) -> Dict[str, str]:  # ← Changed return type
+        """Repair logical errors - returns reasoning + code"""
+        system_prompt = self._load_prompt('debugging_logic_error_system')
+        user_prompt = self._format_prompt(
+            'debugging_logic_error_user',
             problem=problem,
             math_model=math_model,
+            code=code,
+            error=error
+        )
+        
+        raw_response = self._call_llm(system_prompt, user_prompt)
+        result = extract_reasoning_and_code(raw_response)  # ← NEW
+        
+        print(f"  [{self.agent_name}] ✓ Fixed logic")
+        return result
+    
+    def _repair_syntax_error(
+        self,
+        code: str,
+        error: str
+    ) -> Dict[str, str]:  # ← Changed return type
+        """Repair syntax errors - returns reasoning + code"""
+        system_prompt = self._load_prompt('debugging_syntax_error_system')
+        user_prompt = self._format_prompt(
+            'debugging_syntax_error_user',
+            code=code,
+            error=error
+        )
+        
+        raw_response = self._call_llm(system_prompt, user_prompt)
+        result = extract_reasoning_and_code(raw_response)
+        
+        print(f"  [{self.agent_name}] ✓ Fixed syntax")
+        return result
+    
+    def _repair_api_error(
+        self,
+        code: str,
+        error: str,
+        coding_reference: str
+    ) -> Dict[str, str]:  # ← Changed return type
+        """Repair API errors - returns reasoning + code"""
+        system_prompt = self._load_prompt('debugging_api_error_system')
+        user_prompt = self._format_prompt(
+            'debugging_api_error_user',
             coding_reference=coding_reference,
             code=code,
             error=error
         )
         
         raw_response = self._call_llm(system_prompt, user_prompt)
-        repaired_code = extract_python_code(raw_response)
+        result = extract_reasoning_and_code(raw_response)
         
-        print(f"  [{self.agent_name}] ✓ Generated complete code ({len(repaired_code)} chars)")
-        return repaired_code
+        print(f"  [{self.agent_name}] ✓ Fixed API usage")
+        return result
     
     def _repair_import_error(
         self,
@@ -307,8 +372,8 @@ class DebuggingAgent(BaseAgent):
         problem: str,
         math_model: str,
         coding_reference: str
-    ) -> str:
-        """Repair import errors (especially wrong solver)"""
+    ) -> Dict[str, str]:  # ← Changed return type
+        """Repair import errors - returns reasoning + code"""
         system_prompt = self._load_prompt('debugging_import_error_system')
         user_prompt = self._format_prompt(
             'debugging_import_error_user',
@@ -320,97 +385,81 @@ class DebuggingAgent(BaseAgent):
         )
         
         raw_response = self._call_llm(system_prompt, user_prompt)
-        repaired_code = extract_python_code(raw_response)
+        result = extract_reasoning_and_code(raw_response)
         
-        print(f"  [{self.agent_name}] ✓ Fixed solver imports")
-        return repaired_code
+        print(f"  [{self.agent_name}] ✓ Fixed imports")
+        return result
     
-    def _repair_api_error(
+    def _repair_incomplete_code(
         self,
         code: str,
         error: str,
+        problem: str,
+        math_model: str,
         coding_reference: str
-    ) -> str:
-        """Repair COPT API usage errors"""
-        system_prompt = self._load_prompt('debugging_api_error_system')
+    ) -> Dict[str, str]:  # ← Changed return type
+        """Repair incomplete code - returns reasoning + code"""
+        system_prompt = self._load_prompt('debugging_incomplete_code_system')
         user_prompt = self._format_prompt(
-            'debugging_api_error_user',
+            'debugging_incomplete_code_user',
+            problem=problem,
+            math_model=math_model,
             coding_reference=coding_reference,
             code=code,
             error=error
         )
         
         raw_response = self._call_llm(system_prompt, user_prompt)
-        repaired_code = extract_python_code(raw_response)
+        print(f"DEBUG: raw_response type = {type(raw_response)}")  # ADD THIS
+        result = extract_reasoning_and_code(raw_response)
+        print(f"DEBUG: result type = {type(result)}, keys = {result.keys() if isinstance(result, dict) else 'NOT A DICT'}")  # ADD THIS
         
-        print(f"  [{self.agent_name}] ✓ Fixed API usage")
-        return repaired_code
-    
-    def _repair_syntax_error(
+        print(f"  [{self.agent_name}] ✓ Generated complete code")
+        return result
+
+    def _smart_repair(
         self,
-        code: str,
-        error: str
-    ) -> str:
-        """Repair Python syntax errors"""
-        system_prompt = self._load_prompt('debugging_syntax_error_system')
-        user_prompt = self._format_prompt(
-            'debugging_syntax_error_user',
-            code=code,
-            error=error
-        )
-        
-        raw_response = self._call_llm(system_prompt, user_prompt)
-        repaired_code = extract_python_code(raw_response)
-        
-        print(f"  [{self.agent_name}] ✓ Fixed syntax")
-        return repaired_code
-    
-    def _repair_variable_types(
-        self,
-        code: str,
-        math_model: str,
-        predicted: float,
-        expected: str
-    ) -> str:
-        """Fix variable type issues (CONTINUOUS vs INTEGER)"""
-        system_prompt = self._load_prompt('debugging_variable_type_system')
-        user_prompt = self._format_prompt(
-            'debugging_variable_type_user',
-            math_model=math_model,
-            code=code,
-            predicted=str(predicted) if predicted else "unknown",
-            expected=expected
-        )
-        
-        raw_response = self._call_llm(system_prompt, user_prompt)
-        repaired_code = extract_python_code(raw_response)
-        
-        print(f"  [{self.agent_name}] ✓ Fixed variable types")
-        return repaired_code
-    
-    def _repair_logic_error(
-        self,
+        error_type: str,
         code: str,
         error: str,
-        problem: str,
-        math_model: str
-    ) -> str:
-        """Repair logical/mathematical modeling errors"""
-        system_prompt = self._load_prompt('debugging_logic_error_system')
-        user_prompt = self._format_prompt(
-            'debugging_logic_error_user',
-            problem=problem,
-            math_model=math_model,
-            code=code,
-            error=error
-        )
+        problem: str = "",
+        math_model: str = "",
+        coding_reference: str = "",
+        predicted: float = None,
+        expected: str = ""
+    ) -> Dict[str, str]:  # ← Changed return type
+        """
+        Apply appropriate repair based on error type
         
-        raw_response = self._call_llm(system_prompt, user_prompt)
-        repaired_code = extract_python_code(raw_response)
+        Returns:
+            Dict with 'reasoning' and 'code' keys
+        """
+        print(f"  [{self.agent_name}] Applying {error_type} repair strategy...")
         
-        print(f"  [{self.agent_name}] ✓ Fixed logic")
-        return repaired_code
-
+        if error_type == ErrorType.INCOMPLETE_CODE:
+            return self._repair_incomplete_code(code, error, problem, math_model, coding_reference)
+        
+        elif error_type == ErrorType.IMPORT_ERROR:
+            return self._repair_import_error(code, error, problem, math_model, coding_reference)
+        
+        elif error_type == ErrorType.API_ERROR:
+            return self._repair_api_error(code, error, coding_reference)
+        
+        elif error_type == ErrorType.SYNTAX_ERROR:
+            return self._repair_syntax_error(code, error)
+        
+        elif error_type == ErrorType.VARIABLE_TYPE_ERROR:
+            return self._repair_variable_types(code, math_model, predicted, expected)
+        
+        elif error_type == ErrorType.LOGIC_ERROR:
+            return self._repair_logic_error(code, error, problem, math_model)
+        
+        else:
+            # Fallback: return code unchanged with generic message
+            return {
+                'reasoning': f"Unknown error type: {error_type}. No repair applied.",
+                'code': code
+            }
 
 # Test
 if __name__ == "__main__":

@@ -107,127 +107,80 @@ class COPTAPIRetriever:
         """
         return self.api_methods.get(method_name, {})
     
+
     def format_for_prompt(
         self, 
         method_names: List[str],
-        include_all_details: bool = True
+        include_all_details: bool = True,
+        condensed: bool = False
     ) -> str:
         """
         Format API methods for LLM prompt
         
         Args:
-            method_names: List of method names to include
-            include_all_details: If True, include critical notes and examples
-            
-        Returns:
-            Formatted API documentation string
-            
-        Example:
-            >>> methods = retriever.get_methods_by_keywords(['addvar'])
-            >>> prompt = retriever.format_for_prompt(methods)
+            method_names: List of method names
+            include_all_details: Include examples and notes
+            condensed: If True, return minimal version
         """
         if not method_names:
-            return "No API methods found for the given keywords."
+            return "No API methods found."
         
-        formatted = "## COPT Python API Documentation\n\n"
+        if condensed:
+            # CONDENSED VERSION (50-100 tokens)
+            formatted = "Key COPT methods:\n"
+            for method_name in method_names[:5]:  # Only top 5
+                details = self.get_method_details(method_name)
+                if details:
+                    formatted += f"- {method_name}: {details.get('purpose', 'N/A')}\n"
+            return formatted
         
-        for method_name in method_names:
-            details = self.get_method_details(method_name)
+        else:
+            # ORIGINAL VERBOSE VERSION
+            formatted = ""
+            for method_name in method_names:
+                details = self.get_method_details(method_name)
+                if not details:
+                    continue
+                
+                formatted += f"### {method_name}\n\n"
+                formatted += f"**Purpose**: {details.get('purpose', 'N/A')}\n\n"
+                
+                if include_all_details:
+                    if details.get('syntax'):
+                        formatted += f"**Syntax**: `{details['syntax']}`\n\n"
+                    if details.get('parameters'):
+                        formatted += "**Parameters**:\n"
+                        for param in details['parameters']:
+                            formatted += f"- `{param['name']}`: {param['description']}\n"
+                        formatted += "\n"
+                    if details.get('example'):
+                        formatted += f"**Example**:\n```python\n{details['example']}\n```\n\n"
+                
+                formatted += "---\n\n"
             
-            if not details:
-                continue
-            
-            formatted += f"### {method_name}\n\n"
-            
-            # Signature
-            if details.get('signature'):
-                formatted += f"**Signature:**\n```python\n{details['signature']}\n```\n\n"
-            
-            # Critical notes (MOST IMPORTANT!)
-            if include_all_details and details.get('critical_note'):
-                formatted += f"⚠️ **CRITICAL:** {details['critical_note']}\n\n"
-            
-            # Correct usage
-            if include_all_details and details.get('correct_usage'):
-                formatted += "**✓ Correct Usage:**\n```python\n"
-                if isinstance(details['correct_usage'], list):
-                    formatted += '\n'.join(details['correct_usage'])
-                else:
-                    formatted += details['correct_usage']
-                formatted += "\n```\n\n"
-            
-            # Wrong usage (if any)
-            if include_all_details and details.get('wrong_usage'):
-                formatted += "**✗ Wrong Usage:**\n```python\n"
-                formatted += details['wrong_usage']
-                formatted += "\n```\n\n"
-            
-            # Alternative (if any)
-            if include_all_details and details.get('alternative'):
-                formatted += "**Alternative Approach:**\n```python\n"
-                formatted += details['alternative']
-                formatted += "\n```\n\n"
-            
-            # Examples
-            if details.get('examples'):
-                formatted += "**Examples:**\n```python\n"
-                if isinstance(details['examples'], list):
-                    formatted += '\n'.join(details['examples'])
-                else:
-                    formatted += details['examples']
-                formatted += "\n```\n\n"
-            
-            formatted += "---\n\n"
-        
-        return formatted
-    
-    def get_essential_guide(self) -> str:
+            return formatted
+
+    def get_essential_guide(self, condensed: bool = False) -> str:
         """
-        Get essential COPT API guide covering common operations
+        Get essential COPT workflow guide
         
-        Returns:
-            Quick reference guide for COPT basics
+        Args:
+            condensed: If True, return minimal version
         """
-        essential_methods = [
-            'Envr.__init__',
-            'Envr.createModel',
-            'Model.addVar',
-            'Model.addVars',
-            'Model.addConstr',
-            'Model.setObjective',
-            'Model.solve'
-        ]
-        
-        guide = "## COPT Essential API Guide\n\n"
-        guide += "This guide covers the core APIs needed for most optimization problems.\n\n"
-        
-        # Add basic workflow
-        guide += "### Basic Workflow\n"
-        guide += "```python\n"
-        guide += "import coptpy as cp\n"
-        guide += "from coptpy import COPT\n\n"
-        guide += "# 1. Create environment\n"
-        guide += "env = cp.Envr()\n\n"
-        guide += "# 2. Create model\n"
-        guide += "model = env.createModel('problem_name')\n\n"
-        guide += "# 3. Add variables\n"
-        guide += "x = model.addVar(vtype=COPT.INTEGER, name='x')\n\n"
-        guide += "# 4. Add constraints\n"
-        guide += "model.addConstr(x >= 5)\n\n"
-        guide += "# 5. Set objective\n"
-        guide += "model.setObjective(x, COPT.MINIMIZE)\n\n"
-        guide += "# 6. Solve\n"
-        guide += "model.solve()\n\n"
-        guide += "# 7. Get solution\n"
-        guide += "if model.status == COPT.OPTIMAL:\n"
-        guide += "    print(f'Optimal objective: {model.objval}')\n"
-        guide += "```\n\n"
-        
-        # Add detailed API docs for essential methods
-        guide += self.format_for_prompt(essential_methods, include_all_details=True)
-        
-        return guide
-    
+        if condensed:
+            # CONDENSED VERSION (100-150 tokens)
+            return """Essential COPT pattern:
+    1. Create model: env = cp.Envr(); model = env.createModel()
+    2. Add variables: x = model.addVar(lb=0, vtype=COPT.INTEGER)
+    3. Set objective: model.setObjective(expr, COPT.MINIMIZE)
+    4. Add constraints: model.addConstr(lhs <= rhs)
+    5. Solve: model.solve()
+    6. Get solution: x.X for value
+    """
+        else:
+            # ORIGINAL VERBOSE VERSION
+            return self._format_essential_guide_verbose()
+
     def extract_api_keywords_from_model(self, math_model: str) -> List[str]:
         """
         Extract which COPT APIs are likely needed based on mathematical model

@@ -35,7 +35,7 @@ class ParallelExecutor:
     - Statistics collection
     """
 
-    def __init__(self, config: Config, num_workers: int = 9):
+    def __init__(self, config: Config, num_workers: int = 12):
         """
         Initialize parallel executor
 

@@ -56,32 +56,58 @@ class GurobiExampleRetriever:
         
         return results
     
-    def format_for_prompt(self, examples: List[Dict]) -> str:
-        """Format examples for LLM prompt"""
+
+    def format_for_prompt(self, examples: List[Dict], condensed: bool = False) -> str:
+        """
+        Format examples for LLM prompt
+        
+        Args:
+            examples: List of example dicts
+            condensed: If True, return minimal version for training data
+        """
         if not examples:
             return "No relevant Gurobi examples found."
         
-        formatted = "## Relevant Gurobi Modeling Examples\n\n"
+        if condensed:
+            # CONDENSED VERSION for training data (200-300 tokens total)
+            formatted = "Key modeling patterns:\n"
+            
+            for i, ex in enumerate(examples, 1):
+                # Only include: problem type + variable types + key pattern
+                formatted += f"- Similar to {ex['name'].replace('_', ' ')}: "
+                formatted += f"{', '.join(ex['problem_types'][:2])}\n"
+                
+                if ex['patterns']['variable_types']:
+                    formatted += f"  Variables: {', '.join(ex['patterns']['variable_types'])}\n"
+                
+                if ex['patterns']['constraint_patterns']:
+                    formatted += f"  Pattern: {ex['patterns']['constraint_patterns'][0]}\n"
+            
+            return formatted
         
-        for i, ex in enumerate(examples, 1):
-            formatted += f"### Example {i}: {ex['name'].replace('_', ' ').title()}\n\n"
-            formatted += f"**Problem Types**: {', '.join(ex['problem_types'])}\n\n"
-            formatted += f"**Description**: {ex['description'][:300]}...\n\n"
+        else:
+            # ORIGINAL VERBOSE VERSION (for reference, not training)
+            formatted = "## Relevant Gurobi Modeling Examples\n\n"
             
-            if ex['patterns']['variable_types']:
-                formatted += f"**Variable Types Used**: {', '.join(ex['patterns']['variable_types'])}\n\n"
+            for i, ex in enumerate(examples, 1):
+                formatted += f"### Example {i}: {ex['name'].replace('_', ' ').title()}\n\n"
+                formatted += f"**Problem Types**: {', '.join(ex['problem_types'])}\n\n"
+                formatted += f"**Description**: {ex['description'][:300]}...\n\n"
+                
+                if ex['patterns']['variable_types']:
+                    formatted += f"**Variable Types Used**: {', '.join(ex['patterns']['variable_types'])}\n\n"
+                
+                if ex['code_blocks']:
+                    formatted += "**Example Gurobi Code Pattern**:\n"
+                    formatted += f"```python\n{ex['code_blocks'][0][:400]}\n...\n```\n\n"
+                
+                formatted += "**Key Modeling Patterns**:\n"
+                for pattern in ex['patterns']['constraint_patterns'][:2]:
+                    formatted += f"- {pattern}\n"
+                
+                formatted += "\n---\n\n"
             
-            if ex['code_blocks']:
-                formatted += "**Example Gurobi Code Pattern**:\n"
-                formatted += f"```python\n{ex['code_blocks'][0][:400]}\n...\n```\n\n"
-            
-            formatted += "**Key Modeling Patterns**:\n"
-            for pattern in ex['patterns']['constraint_patterns'][:2]:
-                formatted += f"- {pattern}\n"
-            
-            formatted += "\n---\n\n"
-        
-        return formatted
+            return formatted
 
 
 # Test
