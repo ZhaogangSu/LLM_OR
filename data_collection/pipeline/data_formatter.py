@@ -29,42 +29,51 @@ class DataFormatter:
     """
 
     def format_training_sample(self, collector_output: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Format collector output into training sample
-
-        Args:
-            collector_output: Raw output from DataCollector
-
-        Returns:
-            Formatted training sample with <think> tags
-        """
+        """Format collector output into training sample"""
+        
         # Build response with thinking process
         response_parts = []
 
-        # Stage 1: Modeling reference
-        response_parts.append("<think_stage name='reference_modeling' agent='reference'>")
+        # Stage 1: Reference modeling (as think)
+        response_parts.append("<think>")
+        response_parts.append("Let me refer to existed modeling examples...\n")
+        response_parts.append("</think>\n")
+
+        # empty reference output
+        response_parts.append("<reference>")
         response_parts.append(collector_output['stage1_modeling_reference'])
-        response_parts.append("</think_stage>\n")
+        response_parts.append("<\reference>")
 
-        # Stage 2: Mathematical modeling
-        response_parts.append("<think_stage name='mathematical_modeling' agent='modeling'>")
+        # Stage 2: Mathematical modeling (think + output)
+        response_parts.append("<think>")
         response_parts.append(collector_output['stage2_math_model'])
-        response_parts.append("</think_stage>\n")
+        response_parts.append("</think>\n")
+        
+        response_parts.append("<model_agent>")
+        response_parts.append(collector_output['stage2_math_model'])
+        response_parts.append("</model_agent>\n")
 
-        # Stage 3: Coding reference
-        response_parts.append("<think_stage name='reference_coding' agent='reference'>")
+        # Stage 3: Reference coding (as think)
+        response_parts.append("<think>")
         response_parts.append(collector_output['stage3_coding_reference'])
-        response_parts.append("</think_stage>\n")
+        response_parts.append("</think>\n")
 
-        # Stage 4: Code generation
-        response_parts.append("<think_stage name='code_generation' agent='coding'>")
+        # Stage 4: Code generation (直接输出代码，不需要think)
+        response_parts.append("<code_agent>")
         response_parts.append(f"```python\n{collector_output['stage4_initial_code']}\n```")
-        response_parts.append("</think_stage>\n")
+        response_parts.append("</code_agent>\n")
 
         # Stage 5: Debugging process
         debug_result = collector_output['stage5_debug_result']
         for i, attempt in enumerate(debug_result.get('history', []), 1):
-            response_parts.append(f"<think_stage name='debugging' agent='debugging' attempt='{i}'>")
+            # Debugging思考过程
+            if attempt.get('reasoning'):
+                response_parts.append("<think>")
+                response_parts.append(str(attempt['reasoning']))
+                response_parts.append("</think>\n")
+            
+            # Debugging输出（不带agent='xxx'）
+            response_parts.append(f"<debugging>")
 
             # Execution result
             if attempt['execution']['success']:
@@ -81,28 +90,25 @@ class DataFormatter:
                 else:
                     response_parts.append(f"\n✗ Wrong answer: {answer_check['status']}")
 
-            # Include LLM reasoning if available
-            if attempt.get('reasoning'):
-                response_parts.append("\n\n## Debugging Analysis\n")
-                response_parts.append(str(attempt['reasoning']))
-
             # Show repaired code if available
             if attempt.get('repaired_code'):
                 response_parts.append("\n\n## Repaired Code\n")
                 response_parts.append(f"```python\n{attempt['repaired_code']}\n```")
 
-            response_parts.append("</think_stage>\n")
-        
-        # Final answer
+            response_parts.append("</debugging>\n")
+
+        # Final code
         response_parts.append("\n<final_code>")
         response_parts.append(f"```python\n{debug_result['final_code']}\n```")
         response_parts.append("</final_code>\n")
 
+        # Final answer
         if debug_result['success']:
             response_parts.append(f"\n<answer>{collector_output['ground_truth']}</answer>")
 
         # Combine response
         full_response = '\n'.join(response_parts)
+        
 
         # Create training sample
         training_sample = {

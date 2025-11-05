@@ -101,8 +101,8 @@ class DebuggingAgent(BaseAgent):
             
             # Execute code
             exec_result = self.executor.execute(current_code)
-            print(f"DEBUG: exec_result type = {type(exec_result)}")
-            print(f"DEBUG: exec_result = {exec_result}")
+            # print(f"DEBUG: exec_result type = {type(exec_result)}")
+            # print(f"DEBUG: exec_result = {exec_result}")
             
             # Create attempt record
             attempt_record = {
@@ -119,8 +119,8 @@ class DebuggingAgent(BaseAgent):
                     ground_truth,
                     tolerance=self.answer_tolerance
                 )
-                print(f"DEBUG: answer_check type = {type(answer_check)}")
-                print(f"DEBUG: answer_check = {answer_check}")
+                # print(f"DEBUG: answer_check type = {type(answer_check)}")
+                # print(f"DEBUG: answer_check = {answer_check}")
                 attempt_record['answer_check'] = answer_check
                 
                 if answer_check['correct']:
@@ -410,9 +410,9 @@ class DebuggingAgent(BaseAgent):
         )
         
         raw_response = self._call_llm(system_prompt, user_prompt)
-        print(f"DEBUG: raw_response type = {type(raw_response)}")  # ADD THIS
+        # print(f"DEBUG: raw_response type = {type(raw_response)}")  # ADD THIS
         result = extract_reasoning_and_code(raw_response)
-        print(f"DEBUG: result type = {type(result)}, keys = {result.keys() if isinstance(result, dict) else 'NOT A DICT'}")  # ADD THIS
+        # print(f"DEBUG: result type = {type(result)}, keys = {result.keys() if isinstance(result, dict) else 'NOT A DICT'}")  # ADD THIS
         
         print(f"  [{self.agent_name}] ✓ Generated complete code")
         return result
