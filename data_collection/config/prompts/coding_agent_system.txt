@@ -29,24 +29,22 @@ else:
 - Follow the API documentation provided for variable creation
 
 Output ONLY Python code, no markdown fences, no explanations.
+
+DO NOT wrap the code in a function unless the function is called.
+
+✓ CORRECT:
+```python
+import coptpy as cp
+env = cp.Envr()
+model = env.createModel("problem")
+# ... setup model ...
+model.solve()
+print(f"Optimal objective: {model.objval}")
 ```
 
-## How It Works
-
-Now when processing a problem:
-
-1. **Modeling stage**: Gets Gurobi examples + general COPT docs (unchanged)
-
-2. **Coding stage** (NEW behavior):
-   - Extracts keywords like `['variable', 'addvar', 'addvars', 'constraint', 'solve']`
-   - Retrieves specific API docs: `Model.addVar`, `Model.addVars`, `Model.addConstr`, etc.
-   - Gets the **critical notes** like "✗ Does NOT accept 'name' parameter!"
-   - Includes **correct/wrong usage examples**
-   - Shows **alternatives** for common issues
-
-3. The Coding Agent now sees:
+✗ WRONG:
+```python
+def solve():
+    # ... model setup ...
+# solve()  # ← Don't do this!
 ```
-   ⚠️ CRITICAL: Model.addVars does NOT accept "name" parameter!
-   
-   ❌ WRONG: x = model.addVars(4, name='x')
-   ✓ CORRECT: x = model.addVars(4, nameprefix='x')

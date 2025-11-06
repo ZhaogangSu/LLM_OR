@@ -55,6 +55,7 @@ class ErrorType:
     IMPORT_ERROR = "import_error"
     LOGIC_ERROR = "logic_error"
     VARIABLE_TYPE_ERROR = "variable_type"
+    NO_OUTPUT = "no_output"
 
 
 class DebuggingAgent(BaseAgent):
@@ -275,6 +276,10 @@ class DebuggingAgent(BaseAgent):
         if not is_execution_error:
             if 'could not extract' not in error_lower:
                 return ErrorType.VARIABLE_TYPE_ERROR
+
+        # Check for no output
+        if not is_execution_error and (not output or output.strip() == ""):
+            return ErrorType.NO_OUTPUT
         
         # 6. Default: logic error
         return ErrorType.LOGIC_ERROR
