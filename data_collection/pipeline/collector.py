@@ -45,7 +45,7 @@ class DataCollector:
         self.llm = create_llm_client(config)
 
         # Initialize all agents
-        self.reference_agent = ReferenceAgent(config._config)
+        self.reference_agent = ReferenceAgent(config._config, llm=self.llm)
         self.modeling_agent = ModelingAgent(self.llm, config._config)
         self.coding_agent = CodingAgent(self.llm, config._config)
         self.debugging_agent = DebuggingAgent(self.llm, config._config)

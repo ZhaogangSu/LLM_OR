@@ -11,7 +11,7 @@ from knowledge_base.retrievers.copt_api_retriever import COPTAPIRetriever
 from knowledge_base.retrievers.gurobi_retriever import GurobiExampleRetriever
 from typing import List
 import json
-
+import re  
 
 class ReferenceAgent:
     """
@@ -32,7 +32,8 @@ class ReferenceAgent:
         self,
         gurobi_index: str = "knowledge_base/data/gurobi_examples_index.json",
         copt_api_json: str = "knowledge_base/data/copt_api_essential.json",
-        translation_guide: str = None
+        translation_guide: str = None,
+        llm=None
     ):
         """
         Initialize reference agent
@@ -53,6 +54,8 @@ class ReferenceAgent:
         
         # Initialize COPT API retriever (for coding)
         self.copt_api_retriever = COPTAPIRetriever(copt_api_json)
+        
+        self.llm = llm
         
         # Load translation guide if provided
         self.translation_guide = None

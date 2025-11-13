@@ -14,8 +14,10 @@ from pathlib import Path
 kb_path = Path(__file__).parent.parent / 'knowledge_base' / 'retrievers'
 sys.path.insert(0, str(kb_path))
 
-from reference_agent import ReferenceAgent as KBReferenceAgent
+import re
 
+from reference_agent import ReferenceAgent as KBReferenceAgent
+# from core.llm_client import create_llm_client
 
 class ReferenceAgent:
     """
@@ -31,7 +33,7 @@ class ReferenceAgent:
     - Complex document searching
     """
     
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: Dict[str, Any], llm=None):
         """
         Initialize reference agent
         
@@ -49,27 +51,67 @@ class ReferenceAgent:
         self.kb_agent = KBReferenceAgent(
             gurobi_index=kb_config['gurobi_index'],
             copt_api_json=kb_config['copt_api_json'],
-            translation_guide=kb_config.get('translation_guide')
+            translation_guide=kb_config.get('translation_guide'),
+            llm=llm
         )
+        
+        # 使用传入的 LLM client
+        self.llm = llm  # ← 直接使用传入的
         
         self.condensed_mode = config.get('pipeline', {}).get('condensed_references', True)
+        
         print(f"✓ ReferenceAgent wrapper initialized (condensed={self.condensed_mode})")
+
+    def _generate_search_query(self, problem: str) -> str:
+        """让LLM生成检索查询"""
+        system_prompt = """You are a knowledge retrieval expert. Given an optimization problem, identify what modeling patterns to search for.
+
+Output format:
+Search keywords: [keyword1, keyword2, keyword3]
+Reasoning: [why these keywords]"""
+        
+        user_prompt = f"""Problem: {problem[:500]}
+
+What modeling patterns should I search for?"""
+        
+        response = self.llm.call(system_prompt, user_prompt)
+        return response
     
     def get_modeling_references(self, problem: str) -> str:
-        """
-        Get references for mathematical modeling
+        """获取建模参考（包含检索思考过程）"""
         
-        Args:
-            problem: Problem description
-            
-        Returns:
-            str: Formatted references (Gurobi examples)
-        """
-        return self.kb_agent.get_modeling_references(
-            problem, 
-            condensed=self.condensed_mode  # Pass through
-        )
-    
+        # 1. LLM生成检索意图
+        search_thinking = self._generate_search_query(problem)
+        
+        # 2. 从thinking里提取关键词（简单正则）
+        keywords_match = re.search(r'Search keywords:\s*\[(.*?)\]', search_thinking)
+        if keywords_match:
+            keywords_str = keywords_match.group(1)
+            # 用这些关键词搜索
+            search_query = keywords_str
+        else:
+            # 备选：直接用problem
+            search_query = problem
+        
+        # 3. 实际检索
+        examples = self.gurobi_retriever.search(search_query, top_k=2)
+        
+        # 4. 格式化输出（包含检索思考）
+        if self.condensed_mode:
+            reference = "## Retrieval Process\n\n"
+            reference += search_thinking + "\n\n"
+            reference += "## Retrieved Patterns\n\n"
+            reference += self.gurobi_retriever.format_for_prompt(examples, condensed=True)
+        else:
+            # 详细模式
+            reference = "## Mathematical Modeling Guidance\n\n"
+            reference += "### Retrieval Strategy\n"
+            reference += search_thinking + "\n\n"
+            reference += "### Retrieved Examples\n"
+            reference += self.gurobi_retriever.format_for_prompt(examples)
+        
+        return reference
+
     def get_coding_references(self, math_model: str) -> str:
         """
         Get references for code generation

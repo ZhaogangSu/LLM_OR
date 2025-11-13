@@ -153,12 +153,12 @@ class DebuggingAgent(BaseAgent):
                         repair_result = self._smart_repair(
                             error_type=error_type,
                             code=current_code,
-                            error=f"Wrong answer: expected {ground_truth}, got {pred_value}",
+                            error=f"Wrong answer: predicted {pred_value}, but result is incorrect",
                             problem=problem,
                             math_model=math_model,
                             coding_reference=coding_reference,
                             predicted=pred_value,
-                            expected=ground_truth
+                            expected="unknown"
                         )
                         
                         # Validate repair_result
@@ -298,7 +298,7 @@ class DebuggingAgent(BaseAgent):
             math_model=math_model,
             code=code,
             predicted=str(predicted) if predicted else "unknown",
-            expected=expected
+            expected="unknown"
         )
         
         raw_response = self._call_llm(system_prompt, user_prompt)
